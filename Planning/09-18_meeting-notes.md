@@ -24,8 +24,6 @@ label "First Three Out" with "First Three Out (Tiebreakers)"
 For "low priority features" - I agree. they are. As long as we have leaderboard, it will be good
 
 
-I made sneaky metric!
-
 **Stats Page**
 Top 3 teams added to top 12 after week 6
 Top 3 teams removed from top 12 after week 6
