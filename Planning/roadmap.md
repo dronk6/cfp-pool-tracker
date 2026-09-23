@@ -1,10 +1,18 @@
 # Feature Roadmap
 
+## Noteworthy Dates
+
+- Nov. 3: First AP poll comes out (between wks 9-10)
+  - Could be a chance to build out the leaderboard
+
+## Upcoming Features
+
 #### High Priority
 
 - User can see all other users' picks.
 - User can view a live leaderboard tallying each submission's points.
-- Admin-level user can modify any user's picks at any time.
+  - Need a way to keep updated ranking info when it comes out--either manual, weekly entry or an API
+- Stats page: View Ty's notes
 
 #### Medium Priority
 

@@ -17,14 +17,14 @@ Automate the submission and validation of participants' updates to their CFP Poo
 
 ### Scope
 
-This document covers features desired before the October 11 deadline, which is when week 6 of the season ends. For out-of-scope features, see the [roadmap](./roadmap.md).
+This document covers features desired before the October 17 at noon ET deadline, which is when week 6 of the season ends. For out-of-scope features, see the [roadmap](./roadmap.md).
 
 ## Requirements
 
 ### In Scope
 
 - User can view their submitted CFP Playoff picks.
-- User can update their picks according to the rules and choose a champion between midnight ET going into October 11 and 7pm ET on October 13.
+- User can update their picks according to the rules and choose a champion between midnight ET going into October 11 and 12pm on October 17.
 - User cannot submit their picks unless they adhere to all [rules](../rules.md).
   - Mistakes are identified to the user so they can correct them.
   - Their existing picks remain set until they have submitted valid picks.
@@ -105,6 +105,9 @@ As a user, I would like to view and modify my submitted picks for the current se
   - If picks violate rules, compile a list of the violations and show them in the edit view. 
     - Leave picks as they were for user to edit
     - DO NOT save the picks to the backend
+- When showing teams, could we indicate conference/show logo PNG?
+- Add a popup to Edit View which shows all a user's changes when they click "Save"
+  - If they had too many changes, tell them what's wrong with each bad change (e.g., don't have a g5 team, too many teams, etc.)
 
 #### Wireframe
 
@@ -146,7 +149,101 @@ As a user, I want to navigate between pages available to me.
 
 ### Frontend
 
+- Next.js application with React
+
+#### Pages
+
+- Home
+- Rules
+- My Picks
+
+#### Components
+
+- Log In
+- Nav Bar
+- (Maybe) Edit Picks
+
 ### Backend / APIs
+
+- REST server using Node and Express
+- Authentication via JWT for API requests
+
+#### API Contracts
+
+- `GET /user/{id}`
+- `POST /user`
+- `GET 
+
+### Data
+
+`submissions.json`
+```json
+{
+  "id": "1",
+  "userId": "123",
+  "year": 2026,
+  "picks": {
+    "champion": "",
+    "playoff": [
+      "1",
+      "2",
+      "3",
+      "4"
+    ],
+    "firstThreeOut": [
+      "13",
+      "14",
+      "15"
+    ] 
+  }
+}
+```
+--------
+```json
+submission: {
+  "id": "1",
+  "userId": "123",
+  "year": 2026,
+  "initialPicks": {
+    "playoff": [
+      "1",
+      "2",
+      "3",
+      "12"
+    ],
+    "firstThreeOut": [
+      "13",
+      "14",
+      "15"
+    ] 
+  },
+  "updatedPicks": {
+    "champion": "2",
+    "playoff": [
+      "1",
+      "2",
+      "3",
+      "12"
+    ],
+    "firstThreeOut": [
+      "13",
+      "14",
+      "15"
+    ] 
+  }
+}
+```
+
+
+`users.json`
+```json
+{
+  "id": "123",
+  "name": "John Doe",
+  "email": "john@doe.net",
+  "
+}
+```
 
 ### Data Storage
 
@@ -158,6 +255,8 @@ As a user, I want to navigate between pages available to me.
   - Resend: Provides a developer-friendly API and a generous free tier for sending transactional emails.
   - SendGrid: Offers a free tier of 100 emails per day.
   - Mailgun / Postmark: Provide alternative APIs with robust deliverability and free or trial segments.
+- Create email address for sending OTPs
+  - Tyler requests it contain 69420_6767 somewhere in there
 
 ### Hosting
 
