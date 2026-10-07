@@ -11,4 +11,4 @@ overrides the shared file if there's a conflict.
 
 ## Repo-specific addenda
 
-<!-- Add project-specific instructions, conventions, and context below. -->
+- Start by getting familiar with the repository by reading `/Planning/design-document.md`. 
