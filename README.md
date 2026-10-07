@@ -1,5 +1,28 @@
 # College Football Playoff Prediction Tracker
 
+A Next.js (App Router) + TypeScript app for tracking College Football Playoff predictions. See [Planning/design-document.md](./Planning/design-document.md) for the full design.
+
+## Local Development
+
+Requires Node.js 22 or later and npm.
+
+```bash
+npm install     # install dependencies (first time, or after package.json changes)
+npm run dev     # start the app at http://localhost:3000
+```
+
+| Command | What it does |
+|---------|--------------|
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run all tests once |
+| `npm run test:watch` | Re-run tests on file changes |
+
+### Testing
+
+Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Any `*.test.ts` or `*.test.tsx` file is picked up; keep tests next to the code they cover. `tests/example.test.tsx` shows the pattern. Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
+
 ## Admin Responsibilities
 
 These are the things Tyler (or the maintainer) must do by hand. The app does not do them automatically.
