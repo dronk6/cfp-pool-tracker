@@ -199,8 +199,8 @@ As a user, I want to navigate between pages available to me.
 
 - No separate Express/REST server. The Next.js app's own server-side code — API routes (or server actions/Server Components, implementation detail TBD) — *is* the backend.
 - **The browser never talks to Supabase directly.** All reads and writes to the database go through Next.js server-side code, which holds the Supabase credentials and uses Supabase's server-side client. The client only ever calls our own Next.js endpoints.
-- Why this matters: it keeps one consistent trust boundary. The server-side code is also where we verify *who* is making a request (via the session — see [session-management-plan.md](./session-management-plan.md), currently being revised to use Supabase Auth) before doing anything on that user's behalf. We never accept a client-supplied user ID for a read or write — the user ID always comes from the verified session, server-side. This is the same rule the session plan already establishes; routing all DB access through the server is what makes it enforceable (a direct-from-browser Supabase call would have no reliable place to check "is this really user 123 asking?").
-- Authentication/session mechanics (how a user proves who they are, how that's remembered across requests) are **not** re-specified here — see [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md), which are the authoritative source for that and are currently being updated to reflect Supabase Auth instead of a hand-rolled OTP/JWT flow.
+- Why this matters: it keeps one consistent trust boundary. The server-side code is also where we verify *who* is making a request (via the session — see [session-management-plan.md](./session-management-plan.md)) before doing anything on that user's behalf. We never accept a client-supplied user ID for a read or write — the user ID always comes from the verified session, server-side. This is the same rule the session plan already establishes; routing all DB access through the server is what makes it enforceable (a direct-from-browser Supabase call would have no reliable place to check "is this really user 123 asking?").
+- Authentication/session mechanics (how a user proves who they are, how that's remembered across requests) are **not** re-specified here — see [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md), which are the authoritative source for that.
 
 #### Configuration
 
@@ -540,12 +540,11 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Server-side code can read the verified session from cookies.
     - Code for requesting and verifying the OTP follows the auth plans.
   - Notes:
-    - Follow [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md); both are being revised for Supabase Auth, so confirm they are final before starting.
+    - Follow [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md).
     - Server-side client only, built from `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (see [Configuration](#configuration)); no browser client.
     - Make the local stack's auth match production (Task M8) in `supabase/config.toml`: self-signup disabled, and the Magic Link email shows `{{ .Token }}`. Locally, the codes arrive in the stack's Mailpit inbox.
   - Blockers/Open Questions:
     - Do M8 first: it verifies the Gmail SMTP sender delivers codes, so end-to-end testing of this PR works from the start.
-    - Plan docs are still being updated to reflect Supabase Auth.
 
 - PR 11: Add the Login component
   - User Story: As a user, I would like to log in with my email so I can view and manage my picks.
@@ -668,7 +667,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Notes:
     - None.
   - Blockers/Open Questions:
-    - `rules.md` currently has uncommitted changes; confirm it is final first.
+    - None.
 
 #### Milestone 9: Participant seeding
 
