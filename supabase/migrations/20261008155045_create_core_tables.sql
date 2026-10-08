@@ -31,7 +31,7 @@ create table public.submissions (
   initial_tiebreakers int[] not null,   -- 3 team ids, ordered
   current_playoff     int[] not null,
   current_tiebreakers int[] not null,
-  champion_id         int references public.teams (id),  -- null until first revision
+  champion_id         int references public.teams (id),  -- null until first revision; must be in current_playoff (checked client-side, not by the DB)
   submitted_at        timestamptz not null default now(),
   updated_at          timestamptz,
   unique (user_id, year)
