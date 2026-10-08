@@ -27,7 +27,7 @@ If you're new to Supabase Auth, here's the mental model:
 - **What Supabase does *not* handle for you, and what this document now focuses on:**
   1. **Email enumeration** — by default, Supabase's behavior on `signInWithOtp` can differ depending on whether the email belongs to an existing user, which leaks exactly the kind of "is this person in the pool?" information the original plan warned about. We have to deliberately flatten that.
   2. **Getting participants into `auth.users` in the first place** — Supabase Auth, used the way we're using it (no public sign-up), has no users until something creates them. We need an explicit step for that.
-  3. **Sending the email through our own sender** — Supabase's default email sending is a shared, heavily-rate-limited test sender meant only for development. We still want Resend, just wired in differently than originally planned (as Supabase's SMTP provider, not as code we call directly).
+  3. **Sending the email through our own sender** — Supabase's default email sending is a shared, heavily-rate-limited test sender meant only for development. We connect a dedicated Gmail account as Supabase's custom SMTP provider instead (we have no custom domain, which Resend requires); Supabase sends the email, not code we call directly.
 
 ## Step-by-Step Implementation
 
@@ -51,16 +51,20 @@ Since sign-up is disabled, someone has to create the auth user record for each p
 3. Alongside creating the `auth.users` row, upsert a matching row into a `profiles` table in our own schema (`id` = the new auth user's UUID, plus `name`, `email`, and anything else the app needs to display). This gives the rest of the app a normal Postgres table to join `submissions` against, the same way the design doc's `users.json` was meant to be used — it's just populated from, and keyed by, the Supabase Auth user now instead of being its own standalone identity store.
 4. Re-run the script if Tyler adds a late participant mid-season; `createUser` calls are idempotent-ish in intent here (check for an existing user by email first, or use `upsert`-style logic in the script, so re-running it for the whole list doesn't error out on existing users).
 
-### Step 3: Configure Resend as Supabase's custom SMTP provider
+### Step 3: Configure a Gmail account as Supabase's custom SMTP provider
 
-The original plan had us write our own "call Resend's API to send the OTP email" code. With Supabase Auth, we don't send the email ourselves — Supabase sends it, we just tell it to use Resend's servers instead of Supabase's shared default sender (which is low-volume and meant only for testing, not real use).
+The original plan had us write our own "call Resend's API to send the OTP email" code. With Supabase Auth, we don't send the email ourselves — Supabase sends it, we just tell it to use Gmail's SMTP server instead of Supabase's shared default sender. The default sender only delivers to members of the Supabase organization and is limited to about 2 emails/hour, so it can't serve real participants.
 
-1. Sign up for Resend and verify a sending domain, same as before.
-2. In the Supabase dashboard, go to **Project Settings → Auth → SMTP Settings**, enable "Custom SMTP," and enter Resend's SMTP credentials (host, port, username, password/API key) there.
+This is Tasks M2 and M8 in [design-document.md](./design-document.md). It needs no application code, so do it before building the OTP routes.
+
+1. Create a dedicated Gmail account (not a personal one), enable 2-step verification, and generate an app password.
+2. In the Supabase dashboard, go to **Authentication → Emails → SMTP Settings**, enable "Custom SMTP," and enter `smtp.gmail.com`, port 465 or 587, the full Gmail address as username and sender email, and the app password (no spaces) as the password. These credentials live only in the dashboard, never in the app's environment variables.
 3. Still in the dashboard, under **Authentication → Email Templates**, edit the "Magic Link" template (this is the template Supabase uses for `signInWithOtp` emails). By default it's built around a clickable magic-link button; swap it to surface `{{ .Token }}` instead, so the participant receives an actual 6-digit code to type in, not a link — e.g., "Your CFP Pool Tracker code is: {{ .Token }}. It expires soon."
 4. Optionally tighten the code's lifetime under **Authentication → Settings → Email OTP Expiration** (Supabase defaults to 1 hour; something shorter, like 10 minutes, matches the original plan's intent and the free tier supports changing this).
 
-Resend's free tier (3,000 emails/month) is unaffected by this change — Supabase is just the thing calling Resend's SMTP endpoint now, instead of our own Express code.
+5. Verify delivery before writing any code: create a confirmed test user with an email address outside the Supabase organization, then request a code directly with `POST <project-url>/auth/v1/otp` (anon key, body `{"email": "...", "create_user": false}`). Confirm the email arrives with a 6-digit code and isn't spam-foldered. If it doesn't arrive, check **Logs → Auth** in the dashboard.
+
+Consumer Gmail allows roughly 500 emails/day, far more than this pool needs.
 
 ### Step 4: Build `POST /api/auth/request-otp` (enumeration-safe wrapper)
 
@@ -127,7 +131,7 @@ Supabase handles the "wrong code," "expired code," and "too many attempts" cases
 
 ### Step 6: Test the flow end-to-end
 
-- Request an OTP for a real test participant's email, confirm the email arrives via Resend and the code works.
+- Request an OTP for a real test participant's email, confirm the email arrives via the Gmail SMTP sender and the code works.
 - Confirm requesting an OTP for an email that isn't a seeded participant returns the exact same `{ success: true }` response as a real one.
 - Confirm an expired code is rejected.
 - Confirm too many wrong attempts locks out further guesses on that code (Supabase's built-in cap).
@@ -145,7 +149,7 @@ Supabase handles the "wrong code," "expired code," and "too many attempts" cases
 ## Open Questions
 
 - How does Tyler want to hand off the participant name/email list for seeding each season — a plain text/CSV file the maintainer runs the script against, or something Tyler can trigger himself without touching code? (Doesn't block building the script either way; the script's input format is easy to change later.)
-- Do we want the OTP email's custom template redirected through a branded "from" address (e.g., `codes@cfppooltracker.com` via Resend) rather than Resend's default sending domain? Cosmetic, can be decided whenever the domain is set up.
+- If a custom domain is ever acquired, do we want to move to a branded "from" address (e.g., `codes@cfppooltracker.com`) via a transactional email service? Cosmetic; not needed for this season.
 
 ## Resources
 

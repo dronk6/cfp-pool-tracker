@@ -46,7 +46,7 @@ Do this at least a few days before the edit window opens, so any problem shows u
 3. Click **Restore project** and wait a few minutes until the status is active. (Supabase only keeps paused free projects restorable for a limited time, currently about 90 days from the pause, so check the banner for the deadline. Don't let one sit past it.)
 4. Confirm the data survived: open **Table Editor** and check that `teams`, `profiles`, `submissions` and `seasons` have rows.
 5. Confirm sign-in works: go to the deployed site, request a login code for your own participant email, and sign in.
-6. If the codes don't arrive, check **Project Settings → Auth → SMTP Settings** (Resend credentials) and Resend's dashboard.
+6. If the codes don't arrive, check **Project Settings → Auth → SMTP Settings** (the Gmail sender's credentials; if Google revoked the app password, generate a new one) and **Logs → Auth** in the Supabase dashboard.
 
 ### Before each season: set up the season
 
