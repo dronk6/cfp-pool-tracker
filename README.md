@@ -20,6 +20,26 @@ npm run dev     # start the app at http://localhost:3000
 | `npm test` | Run all tests once |
 | `npm run test:watch` | Re-run tests on file changes |
 
+### Environment variables
+
+Copy [.env.example](./.env.example) to `.env.local` and fill in the values from the Supabase dashboard under **Project Settings → API**. `.env.local` is git-ignored; never commit real values.
+
+| Name | Used by | Where to set it | Secret? |
+|------|---------|-----------------|---------|
+| `SUPABASE_URL` | Server-side Supabase client and middleware | `.env.local` and Vercel (Production and Preview) | No |
+| `SUPABASE_PUBLISHABLE_KEY` | Server-side Supabase client and middleware | `.env.local` and Vercel (Production and Preview) | No, safe to expose by design, but kept server-only here per the design doc |
+| `SUPABASE_SECRET_KEY` | Local admin scripts only (seeding teams and participants) | `.env.local` only. **Never set it in Vercel.** | Yes. It bypasses row-level security |
+
+None of these use the `NEXT_PUBLIC_` prefix, so Next.js never ships them to the browser. The browser does not talk to Supabase directly; all database access goes through Next.js server code. Do not add a `NEXT_PUBLIC_` prefix to any of them.
+
+Notes:
+
+- The Gmail app password used to send login codes is **not** an environment variable. It lives only in the Supabase dashboard under **Auth → SMTP Settings**.
+- Database migration credentials (such as a database password or connection string) are not listed yet. They will be added when the migration tooling is chosen.
+- Nothing reads these variables yet; the Supabase client that uses them arrives in a later change. The build does not require them to be set.
+
+**Vercel setup:** in the Vercel project settings under **Environment Variables**, add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production and Preview. Do not add `SUPABASE_SECRET_KEY`. Merges to `main` are deployed by Vercel's GitHub integration; there is no deploy workflow in this repo.
+
 ### Testing
 
 Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Any `*.test.ts` or `*.test.tsx` file is picked up; keep tests next to the code they cover. `tests/example.test.tsx` shows the pattern. Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
