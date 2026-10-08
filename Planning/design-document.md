@@ -280,9 +280,12 @@ The UI's Edit button reads the same window (via the server) so the button and th
 
 ### Authentication
 
-Sign-in is passwordless email OTP via Supabase Auth, with Resend configured as Supabase's custom SMTP sender. For the full mechanics (enumeration-safe request handling, participant seeding, session/cookie handling), see [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md) — those docs are the source of truth.
+Sign-in is passwordless email OTP via Supabase Auth, with a dedicated Gmail account configured as Supabase's custom SMTP sender (see [Decisions](#decisions-from-design-review)). For the full mechanics (enumeration-safe request handling, participant seeding, session/cookie handling), see [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md) — those docs are the source of truth.
 
-- Create email address for sending OTPs
+- A dedicated Gmail account (not a personal one) sends the OTP emails, authenticated with an app password. The credentials live only in the Supabase dashboard (Auth → SMTP Settings), never in the app's environment variables.
+- Supabase's built-in email sender is not an option: it only delivers to members of the Supabase organization and is limited to about 2 emails/hour.
+- The "Magic Link" email template is edited to show `{{ .Token }}` so participants receive a code, not a link.
+- Sequencing: the sender account (Task M2) and the Supabase Auth configuration (Task M8) need no application code, so both are done **before PR 10**. Task M8 includes a delivery test using Supabase's `/auth/v1/otp` endpoint, so a working sender is confirmed before any login code is written, and PR 10/11 can be tested end-to-end.
 
 ### Hosting
 
@@ -300,7 +303,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
    1. Application repository has been created (Next.js + TypeScript).
    2. Supabase project has been created (this is the Postgres database; no separate Postgres account is needed).
    3. Vercel account and project have been created and linked to the GitHub repo.
-   4. Resend account has been created, a sending domain/address has been chosen, and domain verification has been started (DNS verification can take time, so start immediately).
+   4. A dedicated Gmail account with 2-step verification and an app password exists to send OTP emails (no custom domain needed).
 2. **Scaffolding and early deployment**
    1. Empty pages for the planned routes (Home, Rules, My Picks) exist, and a navigation component can be used to reach them.
    2. GitHub Actions run the repo's tests on every PR, and a PR cannot be merged to `main` unless they pass.
@@ -312,7 +315,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 4. **Validation**
    1. `countMoves` and the validation rules exist as pure, unit-tested functions in `lib/validation.ts`, covering every example in `example_valid_moves.md`.
 5. **Authentication**
-   1. Supabase Auth is configured with Resend as the custom SMTP sender, and OTP emails are delivered.
+   1. Supabase Auth is configured with the Gmail account as the custom SMTP sender and the OTP email template shows the code, and a test OTP email is confirmed delivered to an address outside the Supabase organization. (No code dependency: do this before PR 10.)
    2. The user can log into and out of the site using their email address, with an enumeration-safe login flow.
    3. Only participants who have been seeded can sign in.
    4. `GET /api/me` identifies the user from the verified session.
@@ -343,23 +346,24 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 
 #### Milestone 1: Setup
 
-- Task M1: Create the Supabase, Vercel and Resend accounts and projects #manual
+- Task M1: Create the Supabase and Vercel accounts and projects #manual
   - Requirements:
     - A Supabase project exists (it is the Postgres database; no separate Postgres account is needed).
     - A Vercel project exists and is linked to the GitHub repo.
-    - A Resend account exists.
     - Project names and anything that matters for setup are recorded in the README.
   - Blockers/Open Questions:
     - None.
 
-- Task M2: Choose the OTP sending domain and start Resend verification #manual
+- Task M2: Create the OTP sender Gmail account and app password #manual
   - Requirements:
-    - A sending domain/address is chosen and added to Resend, and its DNS records are published.
+    - A dedicated Gmail account (not a personal one) exists to send OTP emails.
+    - 2-step verification is enabled on it and an app password has been generated and saved in a password manager.
+    - The app password is not committed anywhere; `.env.local` and the repo must not contain it.
   - Notes:
-    - Do this first: DNS verification can take time and is the longest-lead item in the project.
+    - Gmail is used because it needs no custom domain (see [Decisions](#decisions-from-design-review)). Consumer Gmail allows roughly 500 emails/day, well above this pool's needs.
+    - No code depends on this; do it immediately so Task M8 can be done and tested before PR 10.
   - Blockers/Open Questions:
-    - Which sending domain/address will OTP emails come from? Resend generally requires a verified domain.
-    - Depends on M1 (Resend account).
+    - None.
 
 - PR 1: Create the Next.js application
   - User Story: As a developer, I would like a base application in the repo so I can start building features.
@@ -494,9 +498,15 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - Task M8: Configure Supabase Auth in the dashboard #manual
   - Requirements:
     - Email OTP sign-in is enabled and self-signup is disabled, so only seeded participants can sign in.
-    - Resend is configured as Supabase's custom SMTP sender, and a test OTP email is delivered.
+    - Custom SMTP (Auth → SMTP Settings) uses the M2 Gmail account: host `smtp.gmail.com`, port 465 or 587, the full Gmail address as username and sender, and the app password (no spaces) as the password.
+    - The "Magic Link" email template is edited to show `{{ .Token }}` so the email contains a code, not a link.
+    - The auth email rate limit (Auth → Rate Limits) is checked and raised if it would throttle a login rush.
+    - Delivery is verified: create a confirmed test user in the dashboard with an email address that is **not** a member of the Supabase organization, request a code with `POST <project-url>/auth/v1/otp` (anon key, `create_user: false`), and confirm the email arrives promptly with a 6-digit code and is not in spam. Delete the test user afterward.
+  - Notes:
+    - No code is needed to do this, so do it before PR 10; PR 10/11 can then be tested end-to-end. The final multi-provider deliverability check remains in Task M12.
+    - If delivery fails, check Logs → Auth in the Supabase dashboard (an SMTP authentication error means the Gmail credentials are wrong).
   - Blockers/Open Questions:
-    - Depends on M1 and M2 (Resend domain verified).
+    - Depends on M1 and M2.
 
 - PR 10: Add Supabase Auth server-side session handling
   - User Story: As a participant, I would like to receive a login code by email so I can sign in without a password.
@@ -506,7 +516,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Notes:
     - Follow [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md); both are being revised for Supabase Auth, so confirm they are final before starting.
   - Blockers/Open Questions:
-    - End-to-end testing depends on M8.
+    - Do M8 first: it verifies the Gmail SMTP sender delivers codes, so end-to-end testing of this PR works from the start.
     - Plan docs are still being updated to reflect Supabase Auth.
 
 - PR 11: Add the Login component
@@ -713,7 +723,8 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **Champion:** chosen only during the October modification window, does not count as a move, and is **required** for an update to be valid. The champion must be one of the 12 teams in the updated top 12.
 - **How Tyler views everyone's picks:** no in-app admin page this season. Tyler reads picks through a documented `all_submissions` SQL view in the Supabase dashboard (PR 24), which shows team names rather than IDs. An in-app admin page is deferred to the roadmap.
 - **Where validation lives:** all pick-content validation is client-side only, and the API trusts it. The server still enforces the session, row ownership, and the edit window (`seasons` table). Accepted risk: a user calling the API directly could save invalid picks; acceptable for a ~50-100 person friendly pool.
+- **OTP email sender:** a dedicated Gmail account via Supabase's custom SMTP, not Resend or Supabase's default sender. We have no custom domain and Resend requires one; Supabase's default sender only delivers to organization members at about 2 emails/hour, so it can't serve the participants. Gmail needs no domain and its volume limit (about 500/day) is ample.
 
 ## Open Questions
 
-- **Which domain/address will OTP emails be sent from?** Resend needs a verified domain, and verification should start immediately.
+- None at present.

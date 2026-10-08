@@ -23,6 +23,7 @@ npm run dev     # start the app at http://localhost:3000
 
 Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Any `*.test.ts` or `*.test.tsx` file is picked up; keep tests next to the code they cover. `tests/example.test.tsx` shows the pattern. Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
 
+<<<<<<< HEAD
 ### Routes
 
 | Route | Page |
@@ -32,6 +33,15 @@ Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://test
 | `/my-picks` | My Picks |
 
 Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
+=======
+## Continuous Integration
+
+A GitHub Actions workflow ([.github/workflows/ci.yml](./.github/workflows/ci.yml)) runs on every pull request and on every push to `main`. It installs dependencies with `npm ci`, then runs `npm run lint`, `npm test`, `npm run typecheck` (`next typegen && tsc --noEmit`) and `npm run build`. It does not deploy (Vercel handles deployment).
+
+The check appears on pull requests as **Checks**. To reproduce it locally, run `npm ci && npm run lint && npm test && npm run typecheck && npm run build`.
+
+Making the check required before merging is a branch protection rule on `main`, configured by hand in the repository settings. The workflow does not set it up.
+>>>>>>> origin/main
 
 ## Admin Responsibilities
 
@@ -48,7 +58,7 @@ Do this at least a few days before the edit window opens, so any problem shows u
 3. Click **Restore project** and wait a few minutes until the status is active. (Supabase only keeps paused free projects restorable for a limited time, currently about 90 days from the pause, so check the banner for the deadline. Don't let one sit past it.)
 4. Confirm the data survived: open **Table Editor** and check that `teams`, `profiles`, `submissions` and `seasons` have rows.
 5. Confirm sign-in works: go to the deployed site, request a login code for your own participant email, and sign in.
-6. If the codes don't arrive, check **Project Settings → Auth → SMTP Settings** (Resend credentials) and Resend's dashboard.
+6. If the codes don't arrive, check **Project Settings → Auth → SMTP Settings** (the Gmail sender's credentials; if Google revoked the app password, generate a new one) and **Logs → Auth** in the Supabase dashboard.
 
 ### Before each season: set up the season
 
