@@ -16,6 +16,7 @@ npm run dev     # start the app at http://localhost:3000
 | `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
 | `npm run lint` | Run ESLint |
+| `npm run typecheck` | Generate Next.js types and run the TypeScript type-check |
 | `npm test` | Run all tests once |
 | `npm run test:watch` | Re-run tests on file changes |
 
@@ -23,7 +24,6 @@ npm run dev     # start the app at http://localhost:3000
 
 Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Any `*.test.ts` or `*.test.tsx` file is picked up; keep tests next to the code they cover. `tests/example.test.tsx` shows the pattern. Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
 
-<<<<<<< HEAD
 ### Routes
 
 | Route | Page |
@@ -33,7 +33,7 @@ Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://test
 | `/my-picks` | My Picks |
 
 Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
-=======
+
 ## Continuous Integration
 
 A GitHub Actions workflow ([.github/workflows/ci.yml](./.github/workflows/ci.yml)) runs on every pull request and on every push to `main`. It installs dependencies with `npm ci`, then runs `npm run lint`, `npm test`, `npm run typecheck` (`next typegen && tsc --noEmit`) and `npm run build`. It does not deploy (Vercel handles deployment).
@@ -41,7 +41,6 @@ A GitHub Actions workflow ([.github/workflows/ci.yml](./.github/workflows/ci.yml
 The check appears on pull requests as **Checks**. To reproduce it locally, run `npm ci && npm run lint && npm test && npm run typecheck && npm run build`.
 
 Making the check required before merging is a branch protection rule on `main`, configured by hand in the repository settings. The workflow does not set it up.
->>>>>>> origin/main
 
 ## Admin Responsibilities
 
