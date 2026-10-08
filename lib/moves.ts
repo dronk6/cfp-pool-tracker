@@ -6,6 +6,19 @@
  * the job of the validation rules, not this function.
  */
 export function countMoves(initialTop12: readonly number[], newTop12: readonly number[]): number {
-  const initialTeams = new Set(initialTop12);
-  return newTop12.filter((teamId) => !initialTeams.has(teamId)).length;
+  const initialSlotByTeam = new Map(initialTop12.map((teamId, slot) => [teamId, slot]));
+
+  let replacements = 0;
+  let reordered = false;
+  newTop12.forEach((teamId, slot) => {
+    const initialSlot = initialSlotByTeam.get(teamId);
+    if (initialSlot === undefined) {
+      replacements += 1;
+    } else if (initialSlot !== slot) {
+      reordered = true;
+    }
+  });
+
+  // However many retained teams changed slots, reordering costs one move in total.
+  return replacements + (reordered ? 1 : 0);
 }

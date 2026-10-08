@@ -82,3 +82,65 @@ describe("countMoves: replacements", () => {
     expect(after).toEqual(afterCopy);
   });
 });
+
+describe("countMoves: reorders", () => {
+  it("counts rearranging four teams as 1 move", () => {
+    const after = top12(
+      "Ohio State",
+      "Memphis",
+      "Texas",
+      "Oregon",
+      "Georgia",
+      "Indiana",
+      "Miami",
+      "Texas Tech",
+      "Oklahoma",
+      "LSU",
+      "Ole Miss",
+      "Notre Dame",
+    );
+    expect(countMoves(before, after)).toBe(1);
+  });
+
+  it("counts an adjacent swap as 1 move", () => {
+    const after = [...before];
+    [after[0], after[1]] = [after[1], after[0]];
+    expect(countMoves(before, after)).toBe(1);
+  });
+
+  it("counts a full reversal as 1 move", () => {
+    expect(countMoves(before, [...before].reverse())).toBe(1);
+  });
+
+  it("counts a rotation as 1 move", () => {
+    const after = [...before.slice(1), before[0]];
+    expect(countMoves(before, after)).toBe(1);
+  });
+});
+
+describe("countMoves: combined replacements and reorders", () => {
+  it("counts a replacement plus a swap of Notre Dame and Texas as 2 moves", () => {
+    const after = withSlot(12, "Penn State");
+    [after[1], after[4]] = [after[4], after[1]];
+    expect(countMoves(before, after)).toBe(2);
+  });
+
+  it("counts a new team in slot 1, shifting everyone down, as 2 moves", () => {
+    const after = [ids["Penn State"], ...before.slice(0, 11)];
+    expect(countMoves(before, after)).toBe(2);
+  });
+
+  it("counts a new team in a different slot than the one it replaced as 2 moves", () => {
+    // Memphis is removed, Utah goes in slot 1 and Ohio State shifts to slot 2.
+    const after = [ids.Utah, ...before.slice(0, 11)];
+    expect(countMoves(before, after)).toBe(2);
+  });
+
+  it("counts three replacements plus any reorder as 4 moves", () => {
+    const after = withSlot(1, "Penn State");
+    after[4] = ids.Alabama;
+    after[11] = ids.Tennessee;
+    [after[1], after[2]] = [after[2], after[1]];
+    expect(countMoves(before, after)).toBe(4);
+  });
+});
