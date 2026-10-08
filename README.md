@@ -4,7 +4,7 @@ A Next.js (App Router) + TypeScript app for tracking College Football Playoff pr
 
 ## Local Development
 
-Requires Node.js 22 or later and npm.
+Requires Node.js 22.9 or later and npm.
 
 ```bash
 npm install     # install dependencies (first time, or after package.json changes)
@@ -19,6 +19,7 @@ npm run dev     # start the app at http://localhost:3000
 | `npm run typecheck` | Generate Next.js types and run the TypeScript type-check |
 | `npm test` | Run all tests once |
 | `npm run test:watch` | Re-run tests on file changes |
+| `npm run seed:teams` | Load the team list into the database (see [Seeding teams](#seeding-teams)) |
 
 ### Environment variables
 
@@ -39,13 +40,22 @@ Notes:
 
 - The Gmail app password used to send login codes is **not** an environment variable. It lives only in the Supabase dashboard under **Auth → SMTP Settings**.
 - Applying migrations needs no environment variable: `npx supabase link` prompts for the database password (see [Database](#database)).
-- Nothing reads these variables yet; the Supabase client that uses them arrives in a later change. The build does not require them to be set.
+- So far only the teams seed script (`npm run seed:teams`) and the opt-in database tests read `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; the app's Supabase client arrives in a later change. The build does not require any of them to be set.
 
 **Vercel setup:** in the Vercel project settings under **Environment Variables**, add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production and Preview. Do not add `SUPABASE_SECRET_KEY`. Merges to `main` are deployed by Vercel's GitHub integration; there is no deploy workflow in this repo.
 
 ### Testing
 
 Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Any `*.test.ts` or `*.test.tsx` file is picked up; keep tests next to the code they cover. `tests/example.test.tsx` shows the pattern. Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
+
+**Database tests** run against the local Supabase stack and are skipped unless `RUN_DB_TESTS=1` is set, so plain `npm test` and CI never need a database. To run them, start the stack, put its values in `.env.local` (see [Environment variables](#environment-variables)), then:
+
+```bash
+RUN_DB_TESTS=1 npm test                        # bash / Git Bash
+$env:RUN_DB_TESTS = "1"; npm test              # PowerShell (stays set for that terminal; Remove-Item Env:RUN_DB_TESTS to unset)
+```
+
+They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern.
 
 ### Routes
 
@@ -96,6 +106,34 @@ Never edit a migration that has already been applied to production; add a new on
 Every table has row level security enabled. Signed-in users (the `authenticated` role) can read `teams` and `seasons`, read only their own `profiles` row and `submissions` rows, and update only their own submissions, and in those only the current picks (`current_playoff`, `current_tiebreakers`, `champion_id`, `updated_at`; enforced with column privileges). Nothing is readable by anonymous requests, and no user can insert or delete rows. The app server calls Supabase with the publishable key and the user's session, so it runs under these policies; this limits the damage if that key leaks. Admin scripts use the secret key, which bypasses row level security, to seed teams, profiles and submissions; the dashboard's SQL editor also bypasses it. These policies back up the API's own checks (session user only, edit window); they don't replace them.
 
 **Removing a participant:** deleting their auth user also deletes their `profiles` row, but not their picks. If they have a `submissions` row, the delete fails until you delete that row first; this is deliberate, so picks are never removed by accident.
+
+### Seeding teams
+
+The `teams` table is loaded from [Planning/d1_fbs_college_football_teams.csv](./Planning/d1_fbs_college_football_teams.csv) by a script that writes with `SUPABASE_SECRET_KEY`:
+
+```bash
+npm run seed:teams                          # seed from the default CSV
+npm run seed:teams -- path/to/teams.csv     # seed from another CSV
+```
+
+It prints the target URL and the number of power and non-power teams, then writes straight away (there is no confirmation prompt), and exits non-zero on any error. It reads `SUPABASE_URL` and `SUPABASE_SECRET_KEY` from `.env.local`, but a variable already set in your shell wins over `.env.local`, so check which database you are about to hit **before** running it:
+
+- **Local:** with the local values in `.env.local`, run it after `npx supabase start` on a new stack and after every `npx supabase db reset`, since a reset empties `teams`.
+- **Production:** put the production URL and secret key in `.env.local` temporarily (see [Environment variables](#environment-variables)), check the target as below, run it, then switch back to the local values.
+
+Before running, check `SUPABASE_URL` in `.env.local`, and make sure it isn't also set in your shell. Each of these should print nothing:
+
+```bash
+echo $SUPABASE_URL $SUPABASE_SECRET_KEY                # bash / Git Bash; unset them with: unset SUPABASE_URL SUPABASE_SECRET_KEY
+```
+
+```powershell
+$env:SUPABASE_URL; $env:SUPABASE_SECRET_KEY            # PowerShell; remove them with: Remove-Item Env:SUPABASE_URL, Env:SUPABASE_SECRET_KEY
+```
+
+It upserts by team ID, so it is safe to re-run: existing teams are updated in place. It never deletes teams that are missing from the CSV; remove those by hand if needed. Known limitation: if ESPN changes a team's ID but the name stays the same, the upsert fails on the unique `name` constraint; delete the old row first.
+
+The CSV must have the header `Team ID,Team Name,Conference,Image` and no quoted fields; the script rejects malformed rows, duplicates and unknown conferences rather than guessing. Which conferences count as power conferences (and the Notre Dame and UConn overrides) is set in one commented block at the top of [scripts/seed-teams/teams.ts](./scripts/seed-teams/teams.ts). Update it there when a conference is added or realigns.
 
 ### Applying migrations to production
 
@@ -158,6 +196,6 @@ Do this at least a few days before the edit window opens, so any problem shows u
 
 ### Before each season: set up the season
 
-1. Reseed `teams` from the season's `d1_fbs_college_football_teams.csv`.
+1. Reseed `teams` in production from the season's `d1_fbs_college_football_teams.csv` with `npm run seed:teams` (see [Seeding teams](#seeding-teams)).
 2. Add the season's row to `seasons` and load it in production; see [Seasons (edit window)](#seasons-edit-window).
 3. For each participant, create their auth user and `profiles` row using the seeding script (see [otp-authentication-plan.md](./Planning/otp-authentication-plan.md), Step 2), **then** insert their initial `submissions` row. Do both for everyone before announcing the site, so nobody logs in to an empty "My Picks" page.
