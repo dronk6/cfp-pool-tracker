@@ -75,3 +75,11 @@ create policy "Users can update their own submissions"
   to authenticated
   using (user_id = (select auth.uid()))
   with check (user_id = (select auth.uid()));
+
+-- RLS policies can't restrict which columns an update touches, so column
+-- privileges limit signed-in users to the editable picks. This keeps
+-- initial_*, year, user_id and submitted_at unchangeable even if the
+-- publishable key leaks. Admin scripts use the secret key and are unaffected.
+revoke update on public.submissions from authenticated, anon;
+grant update (current_playoff, current_tiebreakers, champion_id, updated_at)
+  on public.submissions to authenticated;
