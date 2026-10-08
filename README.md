@@ -22,7 +22,10 @@ npm run dev     # start the app at http://localhost:3000
 
 ### Environment variables
 
-Copy [.env.example](./.env.example) to `.env.local` and fill in the values from the Supabase dashboard under **Project Settings → API**. `.env.local` is git-ignored; never commit real values.
+Copy [.env.example](./.env.example) to `.env.local` and fill in the values. `.env.local` is git-ignored; never commit real values.
+
+- **Everyday local development** uses the local Supabase stack, never production. Start it (see [Database](#database)), then copy the API URL, publishable key and secret key from `npx supabase status` into `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`. Login code emails sent by the local stack are caught by its Mailpit inbox (the Mailpit URL in `npx supabase status`, normally http://127.0.0.1:54324), not delivered.
+- **Production values** come from the Supabase dashboard: the URL is under **Project Settings → API**, and the publishable and secret keys are under **Project Settings → API Keys**. They go in Vercel (see below). Put production values in `.env.local` only temporarily, to run an admin script against production (seeding teams or participants), then switch back to the local values.
 
 | Name | Used by | Where to set it | Secret? |
 |------|---------|-----------------|---------|
@@ -35,7 +38,7 @@ None of these use the `NEXT_PUBLIC_` prefix, so Next.js never ships them to the 
 Notes:
 
 - The Gmail app password used to send login codes is **not** an environment variable. It lives only in the Supabase dashboard under **Auth → SMTP Settings**.
-- Database migration credentials (such as a database password or connection string) are not listed yet. They will be added when the migration tooling is chosen.
+- Applying migrations needs no environment variable: `npx supabase link` prompts for the database password (see [Database](#database)).
 - Nothing reads these variables yet; the Supabase client that uses them arrives in a later change. The build does not require them to be set.
 
 **Vercel setup:** in the Vercel project settings under **Environment Variables**, add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production and Preview. Do not add `SUPABASE_SECRET_KEY`. Merges to `main` are deployed by Vercel's GitHub integration; there is no deploy workflow in this repo.
@@ -61,6 +64,51 @@ A GitHub Actions workflow ([.github/workflows/ci.yml](./.github/workflows/ci.yml
 The check appears on pull requests as **Checks**. To reproduce it locally, run `npm ci && npm run lint && npm test && npm run typecheck && npm run build`.
 
 Making the check required before merging is a branch protection rule on `main`, configured by hand in the repository settings. The workflow does not set it up.
+
+## Database
+
+The schema (`teams`, `profiles`, `seasons`, `submissions`) lives in SQL migrations under [supabase/migrations](./supabase/migrations), managed with the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started). The CLI is a pinned devDependency, so run it with `npx supabase`; no global install is needed.
+
+### Local database
+
+Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/), running. The CLI runs a full local Supabase stack (Postgres, Auth, API, Studio) in containers.
+
+| Command | What it does |
+|---------|--------------|
+| `npx supabase start` | Start the local stack. The first run downloads the images (a few minutes) and creates the database from the migrations; later runs keep the existing data and do not apply new migrations |
+| `npx supabase migration up` | Apply migrations the local database doesn't have yet (e.g. after pulling new ones), keeping its data |
+| `npx supabase status` | Show local URLs and keys |
+| `npx supabase db reset` | Recreate the local database from scratch and reapply every migration (wipes local data) |
+| `npx supabase stop` | Stop the local stack (data is kept until the next `db reset`) |
+
+The local stack has its own URL and keys, different from production. Get them from `npx supabase status` (see [Environment variables](#environment-variables)). Local Studio, for browsing tables, is at the Studio URL it prints (normally http://127.0.0.1:54323).
+
+### Changing the schema
+
+Never edit a migration that has already been applied to production; add a new one instead:
+
+1. `npx supabase migration new <short_name>` creates an empty, timestamped file in `supabase/migrations`.
+2. Write the SQL, then run `npx supabase db reset` to check that every migration applies cleanly.
+3. Commit the file with the change that needs it.
+
+### Row level security
+
+Every table has row level security enabled. Signed-in users (the `authenticated` role) can read `teams` and `seasons`, read only their own `profiles` row and `submissions` rows, and update only their own submissions, and in those only the current picks (`current_playoff`, `current_tiebreakers`, `champion_id`, `updated_at`; enforced with column privileges). Nothing is readable by anonymous requests, and no user can insert or delete rows. The app server calls Supabase with the publishable key and the user's session, so it runs under these policies; this limits the damage if that key leaks. Admin scripts use the secret key, which bypasses row level security, to seed teams, profiles and submissions; the dashboard's SQL editor also bypasses it. These policies back up the API's own checks (session user only, edit window); they don't replace them.
+
+**Removing a participant:** deleting their auth user also deletes their `profiles` row, but not their picks. If they have a `submissions` row, the delete fails until you delete that row first; this is deliberate, so picks are never removed by accident.
+
+### Applying migrations to production
+
+This is done by hand (Task M5, [#10](https://github.com/dronk6/cfp-pool-tracker/issues/10)), not by CI:
+
+```bash
+npx supabase login                                # once per machine; opens the browser
+npx supabase link --project-ref <project-ref>     # prompts for the database password
+npx supabase db push --dry-run                    # lists the migrations that would be applied
+npx supabase db push                              # applies migrations not yet in production
+```
+
+The project ref is in the dashboard URL (`supabase.com/dashboard/project/<project-ref>`). The database password is the one set when the project was created (reset it under **Project Settings → Database** if lost); it is not stored in the repo or in any environment variable.
 
 ## Admin Responsibilities
 

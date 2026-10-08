@@ -291,7 +291,7 @@ The UI's Edit button reads the same window (via the server) so the button and th
 **Access control (RLS).** Row Level Security is enabled on all four tables as defense in depth behind the server-side scoping in [Backend / APIs](#backend--apis). The server queries Supabase with the publishable key plus the signed-in user's session, so these policies apply to every app request:
 
 - `profiles`: a signed-in user can read only their own row.
-- `submissions`: a signed-in user can read and update only their own row. There are no insert or delete policies.
+- `submissions`: a signed-in user can read and update only their own row. There are no insert or delete policies. Signed-in users can update only `current_playoff`, `current_tiebreakers`, `champion_id` and `updated_at` (enforced with column privileges).
 - `teams`, `seasons`: any signed-in user can read.
 - Anonymous requests can read nothing.
 
@@ -759,7 +759,7 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **Supabase API keys and environment variables:** use Supabase's publishable and secret keys, not the legacy `anon` and `service_role` keys, which Supabase is deprecating by the end of 2026. The variables are `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`, all without a `NEXT_PUBLIC_` prefix, because the browser never talks to Supabase. The secret key bypasses RLS, so it is used only by local admin scripts and is never set in Vercel. See [Configuration](#configuration).
 - **Migration tooling:** the Supabase CLI, with its local Docker stack for development. Schema changes are rare, so a migration is verified by applying it cleanly to the local stack; we decided a CI job and a SQL test suite for the schema would be overkill. Behavior is covered by the API tests instead (e.g., PR 14's "user A cannot read user B").
 - **`profiles.id` references `auth.users(id)`** (on delete cascade), so a profile can't exist without its auth user. The seeding script already creates the auth user first.
-- **Row Level Security:** enabled on all four tables, with minimal policies (own profile and submission only; `teams` and `seasons` readable when signed in; nothing for anonymous requests). Without RLS, anyone holding the publishable key could read every table, including participants' emails. RLS with *no* policies was rejected because the deployed server uses the publishable key, so it would block every app query. See [Data](#data).
+- **Row Level Security:** enabled on all four tables, with minimal policies (own profile and submission only; `teams` and `seasons` readable when signed in; nothing for anonymous requests). Without RLS, anyone holding the publishable key could read every table, including participants' emails. RLS with *no* policies was rejected because the deployed server uses the publishable key, so it would block every app query. Column privileges also limit signed-in users' updates on `submissions` to `current_playoff`, `current_tiebreakers`, `champion_id` and `updated_at`, since RLS policies can't restrict columns. See [Data](#data).
 
 ## Open Questions
 
