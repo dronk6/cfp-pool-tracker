@@ -23,6 +23,14 @@ npm run dev     # start the app at http://localhost:3000
 
 Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Any `*.test.ts` or `*.test.tsx` file is picked up; keep tests next to the code they cover. `tests/example.test.tsx` shows the pattern. Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
 
+## Continuous Integration
+
+A GitHub Actions workflow ([.github/workflows/ci.yml](./.github/workflows/ci.yml)) runs on every pull request and on every push to `main`. It installs dependencies with `npm ci`, then runs `npm run lint` and `npm test`. It does not type-check or build, and it does not deploy (Vercel handles deployment).
+
+The check appears on pull requests as **Lint and test**. To reproduce it locally, run `npm ci && npm run lint && npm test`.
+
+Making the check required before merging is a branch protection rule on `main`, configured by hand in the repository settings. The workflow does not set it up.
+
 ## Admin Responsibilities
 
 These are the things Tyler (or the maintainer) must do by hand. The app does not do them automatically.
