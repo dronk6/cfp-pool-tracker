@@ -13,8 +13,44 @@
   padding: 0.75rem 1rem;
 }
 
-.inlineLinks {
+.mobileBar {
   display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.title {
+  font-size: 1.25rem;
+}
+
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0.6rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.hamburger:hover {
+  background: var(--nav-hover);
+}
+
+.hamburgerLine {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.inlineLinks {
+  display: none;
   gap: 0.5rem;
   list-style: none;
 }
@@ -39,4 +75,74 @@
 .actions {
   display: flex;
   align-items: center;
+  margin-left: auto;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgb(0 0 0 / 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms ease,
+    visibility 200ms;
+}
+
+.backdropOpen {
+  opacity: 1;
+  visibility: visible;
+}
+
+.panel {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  width: min(18rem, 80vw);
+  padding: 4.5rem 1rem 1rem;
+  background: var(--nav-background);
+  border-right: 1px solid var(--nav-border);
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition:
+    transform 200ms ease,
+    visibility 200ms;
+}
+
+.panelOpen {
+  transform: translateX(0);
+  visibility: visible;
+}
+
+.panelLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .mobileBar,
+  .backdrop,
+  .panel {
+    display: none;
+  }
+
+  .inlineLinks {
+    display: flex;
+  }
+
+  .actions {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .panel {
+    transition: none;
+  }
 }
