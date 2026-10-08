@@ -1,0 +1,42 @@
+.header {
+  background: var(--nav-background);
+  border-bottom: 1px solid var(--nav-border);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+}
+
+.inlineLinks {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.link {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 1.125rem;
+}
+
+.link:hover {
+  background: var(--nav-hover);
+}
+
+.link[aria-current="page"] {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+}
