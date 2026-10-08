@@ -179,3 +179,47 @@ describe("champion rules", () => {
     expect(rulesOf(picks({ championId: 16 }))).toEqual([]);
   });
 });
+
+describe("move-limit rule", () => {
+  it("passes at exactly 3 moves", () => {
+    // Replace 3 teams (4, 5, 6 -> 12, 13, 14) without reordering the rest.
+    const newTop12 = [1, 2, 3, 12, 13, 14, 7, 8, 9, 10, 11, 16];
+    expect(rulesOf(picks({ newTop12, newTiebreakers: [4, 5, 6] }))).not.toContain("move-limit");
+  });
+
+  it("reports more than 3 moves, counting a reorder as one", () => {
+    // 3 replacements plus a swap of two retained teams = 4 moves.
+    const newTop12 = [2, 1, 3, 12, 13, 14, 7, 8, 9, 10, 11, 16];
+    const violations = validatePicks(picks({ newTop12, newTiebreakers: [4, 5, 6] }));
+    expect(violations.filter((v) => v.rule === "move-limit")).toEqual([
+      {
+        rule: "move-limit",
+        message:
+          "You've used 4 moves, but the limit is 3. Replacing a team counts as 1 move each, and reordering your remaining teams counts as 1 move in total.",
+      },
+    ]);
+  });
+
+  it("is skipped, without throwing, when the top 12 is malformed", () => {
+    const base = [12, 13, 14, 15, 17, 1, 2, 3, 4, 5, 6];
+    const malformed: (number | null)[][] = [
+      [...base, null],
+      [...base, 9999],
+      [...base, 12],
+      base.slice(0, 5),
+    ];
+    for (const newTop12 of malformed) {
+      const rules = rulesOf(picks({ newTop12, newTiebreakers: [8, 9, 10] }));
+      expect(rules).not.toContain("move-limit");
+      expect(rules.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("multiple violations", () => {
+  it("returns every independent violation together, in rule order", () => {
+    const newTop12 = [12, 13, 14, 15, 1, 2, 3, 4, 5, 6, 7, 8];
+    const rules = rulesOf(picks({ newTop12, newTiebreakers: [9, 9, 12], championId: null }));
+    expect(rules).toEqual(["duplicate", "overlap", "g6-required", "champion-required", "move-limit"]);
+  });
+});

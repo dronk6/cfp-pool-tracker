@@ -1,10 +1,14 @@
+import { countMoves } from "./moves";
+
+export const MAX_MOVES = 3;
+
 export interface Team {
   id: number;
   name: string;
   is_power_conf: boolean;
 }
 
-export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap" | "g6-required" | "champion-required" | "champion-not-in-top-12";
+export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap" | "g6-required" | "champion-required" | "champion-not-in-top-12" | "move-limit";
 
 export interface Violation {
   rule: ViolationRule;
@@ -43,6 +47,7 @@ export function validatePicks(input: PicksInput): Violation[] {
     ...checkOverlap(newTop12, newTiebreakers, nameOf),
     ...checkGroupOfSix(newTop12, teamsById),
     ...checkChampion(newTop12, championId, nameOf),
+    ...checkMoveLimit(input.initialTop12, newTop12, teamsById),
   ];
 }
 
@@ -164,6 +169,26 @@ function checkChampion(
       rule: "champion-not-in-top-12",
       message: `${nameOf(championId)} is your champion, but isn't in your top 12. Choose a champion from your top 12.`,
       teamIds: [championId],
+    },
+  ];
+}
+
+// countMoves assumes 12 distinct ids, so malformed lists skip this rule; the
+// shape, unknown-team and duplicate rules already explain what to fix.
+function checkMoveLimit(
+  initialTop12: readonly number[],
+  newTop12: readonly (number | null)[],
+  teamsById: ReadonlyMap<number, Team>,
+): Violation[] {
+  const ids = newTop12.filter((id): id is number => id !== null && teamsById.has(id));
+  if (ids.length !== TOP_12_SIZE || new Set(ids).size !== TOP_12_SIZE) return [];
+
+  const moves = countMoves(initialTop12, ids);
+  if (moves <= MAX_MOVES) return [];
+  return [
+    {
+      rule: "move-limit",
+      message: `You've used ${moves} moves, but the limit is ${MAX_MOVES}. Replacing a team counts as 1 move each, and reordering your remaining teams counts as 1 move in total.`,
     },
   ];
 }
