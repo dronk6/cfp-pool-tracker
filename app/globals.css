@@ -1,12 +1,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --nav-background: #f2f2f7;
+  --nav-border: #d4d4d8;
+  --nav-hover: #e4e4ea;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --nav-background: #1c1c1f;
+    --nav-border: #333338;
+    --nav-hover: #2a2a2e;
   }
 }
 
