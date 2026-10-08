@@ -4,7 +4,7 @@ export interface Team {
   is_power_conf: boolean;
 }
 
-export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap";
+export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap" | "g6-required";
 
 export interface Violation {
   rule: ViolationRule;
@@ -41,6 +41,7 @@ export function validatePicks(input: PicksInput): Violation[] {
     ...checkDuplicates(newTop12, "top 12", nameOf),
     ...checkDuplicates(newTiebreakers, "First Three Out", nameOf),
     ...checkOverlap(newTop12, newTiebreakers, nameOf),
+    ...checkGroupOfSix(newTop12, teamsById),
   ];
 }
 
@@ -123,4 +124,27 @@ function checkOverlap(
     message: `${nameOf(id)} can't be in both the top 12 and the First Three Out.`,
     teamIds: [id],
   }));
+}
+
+// Skipped until every slot holds a known team, so an unfinished or malformed
+// list doesn't also get a misleading "no non-power team" complaint.
+function checkGroupOfSix(
+  top12: readonly (number | null)[],
+  teamsById: ReadonlyMap<number, Team>,
+): Violation[] {
+  if (top12.length !== TOP_12_SIZE) return [];
+  const picked: Team[] = [];
+  for (const id of top12) {
+    const team = id === null ? undefined : teamsById.get(id);
+    if (!team) return [];
+    picked.push(team);
+  }
+  if (picked.some((team) => !team.is_power_conf)) return [];
+  return [
+    {
+      rule: "g6-required",
+      message:
+        "The top 12 must include at least one team from a non-power conference (Notre Dame counts as a power-conference team; UConn does not).",
+    },
+  ];
 }

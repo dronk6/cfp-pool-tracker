@@ -128,3 +128,28 @@ describe("overlap rule", () => {
     expect(rulesOf(picks())).not.toContain("overlap");
   });
 });
+
+describe("g6-required rule", () => {
+  it("reports a top 12 made up only of power-conference teams", () => {
+    const newTop12 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    const violations = validatePicks(picks({ newTop12, newTiebreakers: [13, 14, 15] }));
+    expect(violations.filter((v) => v.rule === "g6-required")).toEqual([
+      {
+        rule: "g6-required",
+        message:
+          "The top 12 must include at least one team from a non-power conference (Notre Dame counts as a power-conference team; UConn does not).",
+      },
+    ]);
+  });
+
+  it("passes when the top 12 includes a non-power-conference team", () => {
+    expect(rulesOf(picks())).not.toContain("g6-required");
+  });
+
+  it("is not reported while a slot is empty or unrecognized", () => {
+    const withEmpty = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, null];
+    const withUnknown = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 9999];
+    expect(rulesOf(picks({ newTop12: withEmpty }))).not.toContain("g6-required");
+    expect(rulesOf(picks({ newTop12: withUnknown }))).not.toContain("g6-required");
+  });
+});
