@@ -202,6 +202,18 @@ As a user, I want to navigate between pages available to me.
 - Why this matters: it keeps one consistent trust boundary. The server-side code is also where we verify *who* is making a request (via the session — see [session-management-plan.md](./session-management-plan.md), currently being revised to use Supabase Auth) before doing anything on that user's behalf. We never accept a client-supplied user ID for a read or write — the user ID always comes from the verified session, server-side. This is the same rule the session plan already establishes; routing all DB access through the server is what makes it enforceable (a direct-from-browser Supabase call would have no reliable place to check "is this really user 123 asking?").
 - Authentication/session mechanics (how a user proves who they are, how that's remembered across requests) are **not** re-specified here — see [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md), which are the authoritative source for that and are currently being updated to reflect Supabase Auth instead of a hand-rolled OTP/JWT flow.
 
+#### Configuration
+
+The app needs three environment variables (see [Decisions](#decisions-from-design-review)). None has a `NEXT_PUBLIC_` prefix, so none is bundled into browser code.
+
+| Variable | Used by | Set in |
+|---|---|---|
+| `SUPABASE_URL` | Server-side Supabase client | Local `.env.local` and Vercel |
+| `SUPABASE_PUBLISHABLE_KEY` | Server-side Supabase client, with the user's session (RLS applies) | Local `.env.local` and Vercel |
+| `SUPABASE_SECRET_KEY` | Local admin scripts only (`teams` seed, participant seeding); bypasses RLS | Local `.env.local` only, **never** Vercel |
+
+The Gmail app password is not an environment variable; it lives only in the Supabase dashboard.
+
 #### API Contracts
 
 *Lightweight overview only — method, path, and purpose. Request/response bodies belong in a future, dedicated API contracts doc.*
@@ -213,7 +225,7 @@ As a user, I want to navigate between pages available to me.
 
 ### Data
 
-We use Supabase (hosted Postgres, free tier) instead of flat JSON files. Two tables:
+We use Supabase (hosted Postgres, free tier) instead of flat JSON files. Four tables:
 
 **`teams`** — a reference table of every FBS team, seeded fresh each season from `d1_fbs_college_football_teams.csv`. It exists so picks can reference a stable team ID instead of a free-text team name (avoiding typos/mismatches like "Ohio State" vs "Ohio St.") and so the G6 auto-bid validation rule can be driven by data (`is_power_conf`) instead of a hardcoded list of conference names in application code. `id` is ESPN's own "Team ID" from the CSV (not a generated id) — we're already fully dependent on ESPN for logo images, so there's no independence gained by minting our own, and using theirs directly makes reseeding idempotent (`ON CONFLICT (id) DO UPDATE`). `is_power_conf` lives directly on `teams` rather than a separate `conferences` table — since the table is fully reseeded from the CSV every season anyway, a conference's power status gets (re)assigned at seed time either way, so a parent table wouldn't save any work, and this avoids a join in every validation check.
 
@@ -233,7 +245,7 @@ Notre Dame and UConn both fall under the CSV's single "FBS Independent" conferen
 
 ```sql
 profiles (
-  id    uuid primary key,  -- matches auth.users.id
+  id    uuid primary key references auth.users(id) on delete cascade,
   name  text not null,
   email text unique not null
 )
@@ -273,6 +285,17 @@ seasons (
 ```
 
 The UI's Edit button reads the same window (via the server) so the button and the server check cannot disagree.
+
+**Migrations.** The schema is managed with the Supabase CLI (an npm devDependency): migrations live in `supabase/migrations/`, are developed against the CLI's local stack (`supabase start`, which needs Docker Desktop), and are applied to production with `supabase link` + `supabase db push` (Task M5). A migration is verified by `supabase db reset` applying cleanly on the local stack; there is no separate CI job or SQL test suite for the schema (see [Decisions](#decisions-from-design-review)).
+
+**Access control (RLS).** Row Level Security is enabled on all four tables as defense in depth behind the server-side scoping in [Backend / APIs](#backend--apis). The server queries Supabase with the publishable key plus the signed-in user's session, so these policies apply to every app request:
+
+- `profiles`: a signed-in user can read only their own row.
+- `submissions`: a signed-in user can read and update only their own row. There are no insert or delete policies.
+- `teams`, `seasons`: any signed-in user can read.
+- Anonymous requests can read nothing.
+
+Admin scripts use the secret key, which bypasses RLS, to create profiles and submissions. The API's own checks (session user only, edit window, `initial_*` never modified) remain the primary controls; RLS doesn't replace them.
 
 ### Data Storage
 
@@ -427,7 +450,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Requirements:
     - Migrations create `teams`, `profiles`, `submissions` and `seasons` exactly as specified in [Data](#data).
   - Notes:
-    - Decide on migration tooling (Supabase CLI migrations are the likely choice).
+    - Tooling, the `profiles` → `auth.users` foreign key and the RLS policies are as described in [Data](#data).
   - Blockers/Open Questions:
     - None. (Can be developed against a local database before the Supabase project exists.)
 
@@ -501,7 +524,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Custom SMTP (Auth → SMTP Settings) uses the M2 Gmail account: host `smtp.gmail.com`, port 465 or 587, the full Gmail address as username and sender, and the app password (no spaces) as the password.
     - The "Magic Link" email template is edited to show `{{ .Token }}` so the email contains a code, not a link.
     - The auth email rate limit (Auth → Rate Limits) is checked and raised if it would throttle a login rush.
-    - Delivery is verified: create a confirmed test user in the dashboard with an email address that is **not** a member of the Supabase organization, request a code with `POST <project-url>/auth/v1/otp` (anon key, `create_user: false`), and confirm the email arrives promptly with a 6-digit code and is not in spam. Delete the test user afterward.
+    - Delivery is verified: create a confirmed test user in the dashboard with an email address that is **not** a member of the Supabase organization, request a code with `POST <project-url>/auth/v1/otp` (publishable key in the `apikey` header, `create_user: false`), and confirm the email arrives promptly with a 6-digit code and is not in spam. Delete the test user afterward.
   - Notes:
     - No code is needed to do this, so do it before PR 10; PR 10/11 can then be tested end-to-end. The final multi-provider deliverability check remains in Task M12.
     - If delivery fails, check Logs → Auth in the Supabase dashboard (an SMTP authentication error means the Gmail credentials are wrong).
@@ -724,6 +747,13 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **How Tyler views everyone's picks:** no in-app admin page this season. Tyler reads picks through a documented `all_submissions` SQL view in the Supabase dashboard (PR 24), which shows team names rather than IDs. An in-app admin page is deferred to the roadmap.
 - **Where validation lives:** all pick-content validation is client-side only, and the API trusts it. The server still enforces the session, row ownership, and the edit window (`seasons` table). Accepted risk: a user calling the API directly could save invalid picks; acceptable for a ~50-100 person friendly pool.
 - **OTP email sender:** a dedicated Gmail account via Supabase's custom SMTP, not Resend or Supabase's default sender. We have no custom domain and Resend requires one; Supabase's default sender only delivers to organization members at about 2 emails/hour, so it can't serve the participants. Gmail needs no domain and its volume limit (about 500/day) is ample.
+
+*Resolved during implementation (10/08):*
+
+- **Supabase API keys and environment variables:** use Supabase's publishable and secret keys, not the legacy `anon` and `service_role` keys, which Supabase is deprecating by the end of 2026. The variables are `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`, all without a `NEXT_PUBLIC_` prefix, because the browser never talks to Supabase. The secret key bypasses RLS, so it is used only by local admin scripts and is never set in Vercel. See [Configuration](#configuration).
+- **Migration tooling:** the Supabase CLI, with its local Docker stack for development. Schema changes are rare, so a migration is verified by applying it cleanly to the local stack; we decided a CI job and a SQL test suite for the schema would be overkill. Behavior is covered by the API tests instead (e.g., PR 14's "user A cannot read user B").
+- **`profiles.id` references `auth.users(id)`** (on delete cascade), so a profile can't exist without its auth user. The seeding script already creates the auth user first.
+- **Row Level Security:** enabled on all four tables, with minimal policies (own profile and submission only; `teams` and `seasons` readable when signed in; nothing for anonymous requests). Without RLS, anyone holding the publishable key could read every table, including participants' emails. RLS with *no* policies was rejected because the deployed server uses the publishable key, so it would block every app query. See [Data](#data).
 
 ## Open Questions
 

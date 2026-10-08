@@ -55,11 +55,11 @@ Verifying a session tells you *who* is making a request. It does **not** tell yo
 
 ### Step 1: Set up the Supabase clients
 
-Install `@supabase/supabase-js` and `@supabase/ssr`. Create:
-- A browser client (`createBrowserClient`), used in Client Components for things like triggering `signInWithOtp` from a form, if any client-side auth calls are needed directly (most of ours go through the Route Handlers in the OTP doc instead, to keep the enumeration-safe wrapping server-side).
-- A server client factory (`createServerClient`), used anywhere server-side code needs to know who's logged in. This is where the cookie adapter is wired up — it needs read/write access to the request's cookies, which looks slightly different in a Route Handler vs. a Server Component vs. middleware, per `@supabase/ssr`'s Next.js setup docs (linked below).
+Install `@supabase/supabase-js` and `@supabase/ssr`. Create a server client factory (`createServerClient`), used anywhere server-side code needs to know who's logged in. This is where the cookie adapter is wired up — it needs read/write access to the request's cookies, which looks slightly different in a Route Handler vs. a Server Component vs. middleware, per `@supabase/ssr`'s Next.js setup docs (linked below).
 
-Both clients are initialized with the project's `anon` public key (safe to expose to the browser) — **never** the `service_role` key from the OTP doc's seeding script, which must stay server-only.
+We don't create a browser client (`createBrowserClient`): per [design-document.md](./design-document.md), the browser never talks to Supabase directly, and all auth calls go through the Route Handlers in the OTP doc to keep the enumeration-safe wrapping server-side.
+
+The server client is initialized with `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (deliberately no `NEXT_PUBLIC_` prefix, so neither is bundled for the browser) — **never** `SUPABASE_SECRET_KEY` from the OTP doc's seeding script, which bypasses RLS and is for local admin scripts only. Because the client carries the user's session, the RLS policies in Step 4 apply to every query it makes.
 
 ### Step 2: Add `middleware.ts` to refresh sessions and gate routes
 
@@ -82,7 +82,7 @@ When the "My Picks" page needs to fetch a user's submission, server-side code (n
 1. Call `supabase.auth.getUser()` to get the verified, server-checked user id.
 2. Use that id — **never** one from a client-supplied query parameter or request body, since that's spoofable (a user could just change `?userId=456` in the URL otherwise) — to query the `submissions` table for that user's rows.
 
-As defense in depth, since the data now lives in Supabase's Postgres, this is also a reasonable place to add a **Row Level Security (RLS) policy** on the `submissions` table (e.g., "a row is only selectable/updatable where `user_id = auth.uid()`"). RLS is a standard Postgres/Supabase free-tier feature, not a paid add-on. It's not a replacement for the application-level scoping above (keep both), but it means that even a bug in our own query-scoping code can't leak another participant's picks.
+As defense in depth, **Row Level Security (RLS)** is enabled on all tables (added with the schema migrations in PR 5; the policies are listed in [design-document.md](./design-document.md)'s Data section). For example, a `submissions` row is only selectable/updatable where `user_id = auth.uid()`. It's not a replacement for the application-level scoping above (keep both), but it means that even a bug in our own query-scoping code can't leak another participant's picks.
 
 ### Step 5: Enforce the submission window server-side
 
@@ -117,12 +117,11 @@ called from a Route Handler (e.g., `POST /api/logout`) using the server client. 
 | Piece | Where it lives | Purpose |
 |---|---|---|
 | Supabase project (Auth + Postgres) | Supabase, free tier | Issues, signs, stores, and refreshes sessions; stores `auth.users` and our `profiles`/`submissions` tables |
-| `@supabase/ssr` browser client | Client Components | Lets client code call Supabase Auth directly when needed (e.g., triggering sign-in forms) |
 | `@supabase/ssr` server client | Server Components, Route Handlers, `middleware.ts` | Reads/writes the session cookies; the only place `getUser()` should be trusted |
 | `middleware.ts` | Next.js | Refreshes the session on each request, gates permissioned pages, redirects unauthenticated users |
 | `GET /api/me` | Next.js Route Handler | Gives the client profile info the `HttpOnly` cookies themselves can't expose |
 | `POST /api/logout` | Next.js Route Handler | Calls `supabase.auth.signOut()`, which revokes the session server-side and clears cookies |
-| `profiles` table + optional RLS policies | Supabase Postgres | Holds name/email data linked to `auth.users`; RLS adds defense-in-depth scoping |
+| `profiles` table + RLS policies | Supabase Postgres | Holds name/email data linked to `auth.users`; RLS adds defense-in-depth scoping |
 | Submission window check | Wherever "update picks" is handled | Server-side enforcement of the edit deadline, independent of auth — unchanged from original plan |
 
 ## Open Questions
