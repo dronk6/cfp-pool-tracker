@@ -12,3 +12,4 @@ overrides the shared file if there's a conflict.
 ## Repo-specific addenda
 
 - Start by getting familiar with the repository by reading `/Planning/design-document.md`. 
+- The design doc's task breakdown and the GitHub issues mirror each other. Whenever you change a task, decision or blocker in `/Planning/` that affects a ticket, edit the matching GitHub issue(s) in the same piece of work (`gh issue edit`), and list the issues you edited in your PR or report. When you edit an issue directly, make the matching change in the design doc too.
