@@ -23,6 +23,16 @@ npm run dev     # start the app at http://localhost:3000
 
 Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Any `*.test.ts` or `*.test.tsx` file is picked up; keep tests next to the code they cover. `tests/example.test.tsx` shows the pattern. Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
 
+### Routes
+
+| Route | Page |
+|-------|------|
+| `/` | Home |
+| `/rules` | Rules |
+| `/my-picks` | My Picks |
+
+Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
+
 ## Admin Responsibilities
 
 These are the things Tyler (or the maintainer) must do by hand. The app does not do them automatically.
