@@ -88,7 +88,7 @@ Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/), runn
 | `npx supabase start` | Start the local stack. The first run downloads the images (a few minutes) and creates the database from the migrations; later runs keep the existing data and do not apply new migrations |
 | `npx supabase migration up` | Apply migrations the local database doesn't have yet (e.g. after pulling new ones), keeping its data |
 | `npx supabase status` | Show local URLs and keys |
-| `npx supabase db reset` | Recreate the local database from scratch and reapply every migration (wipes local data) |
+| `npx supabase db reset` | Recreate the local database from scratch, reapply every migration and load [supabase/seed.sql](./supabase/seed.sql) (wipes local data) |
 | `npx supabase stop` | Stop the local stack (data is kept until the next `db reset`) |
 
 The local stack has its own URL and keys, different from production. Get them from `npx supabase status` (see [Environment variables](#environment-variables)). Local Studio, for browsing tables, is at the Studio URL it prints (normally http://127.0.0.1:54323).
@@ -148,6 +148,35 @@ npx supabase db push                              # applies migrations not yet i
 
 The project ref is in the dashboard URL (`supabase.com/dashboard/project/<project-ref>`). The database password is the one set when the project was created (reset it under **Project Settings → Database** if lost); it is not stored in the repo or in any environment variable.
 
+### Seasons (edit window)
+
+Each year's edit window (when participants can revise their picks) is a row in `seasons`, defined in [supabase/seed.sql](./supabase/seed.sql). The server's edit-window check and the Edit button are designed to read it (neither exists yet), so changing the window is a data change, not a code change. That file holds only `seasons` rows, because it is also run against production; never add dev-only test data to it. Locally, `npx supabase db reset` (and the first `npx supabase start`) loads it.
+
+**Adding next season's row:** add a tuple to the `values` list in `supabase/seed.sql`, with a comment giving the window in ET and in UTC like the 2026 one. Write each instant in US Eastern time with its UTC offset:
+
+- `-04:00` (EDT, daylight time) from 2:00 a.m. on the second Sunday of March until 2:00 a.m. on the first Sunday of November.
+- `-05:00` (EST, standard time) otherwise.
+
+A midnight on the first Sunday of November is still `-04:00`. For example, 2026 opens at `'2026-10-11T00:00:00-04:00'`. Then add a row for the new year to the table in [supabase/seed.test.ts](./supabase/seed.test.ts) with its expected UTC instants, and run `npx supabase db reset` and `npm test`. The insert is an upsert on `year`, so re-running the file is safe, and editing an existing year's window and re-running it updates that row.
+
+**Loading it in production:** in the Supabase dashboard, open **SQL Editor**, paste the whole of `supabase/seed.sql`, and run it. (Use the SQL editor rather than `npx supabase db push --include-seed`, so applying migrations and loading seasons stay separate steps.) Then check the stored instants:
+
+```sql
+select year,
+       edit_opens_at  at time zone 'America/New_York' as opens_et,
+       edit_closes_at at time zone 'America/New_York' as closes_et,
+       edit_opens_at  at time zone 'UTC'              as opens_utc,
+       edit_closes_at at time zone 'UTC'              as closes_utc
+from public.seasons
+order by year;
+```
+
+For 2026 this must show:
+
+| year | opens_et | closes_et | opens_utc | closes_utc |
+|------|----------|-----------|-----------|------------|
+| 2026 | 2026-10-11 00:00:00 | 2026-10-17 12:00:00 | 2026-10-11 04:00:00 | 2026-10-17 16:00:00 |
+
 ## Admin Responsibilities
 
 These are the things Tyler (or the maintainer) must do by hand. The app does not do them automatically.
@@ -168,5 +197,5 @@ Do this at least a few days before the edit window opens, so any problem shows u
 ### Before each season: set up the season
 
 1. Reseed `teams` in production from the season's `d1_fbs_college_football_teams.csv` with `npm run seed:teams` (see [Seeding teams](#seeding-teams)).
-2. Insert the season's row in `seasons` with `edit_opens_at` and `edit_closes_at` (in ET-aware timestamps).
+2. Add the season's row to `seasons` and load it in production; see [Seasons (edit window)](#seasons-edit-window).
 3. For each participant, create their auth user and `profiles` row using the seeding script (see [otp-authentication-plan.md](./Planning/otp-authentication-plan.md), Step 2), **then** insert their initial `submissions` row. Do both for everyone before announcing the site, so nobody logs in to an empty "My Picks" page.
