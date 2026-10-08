@@ -25,7 +25,7 @@ This document covers features desired before the October 17 at noon ET deadline,
 
 - User can view their submitted CFP Playoff picks.
 - User can update their picks according to the rules and choose a champion between midnight ET going into October 11 and 12pm on October 17.
-- User cannot submit their picks unless they adhere to all [rules](../rules.md) and the [Validation Rules](#validation-rules) below.
+- User cannot submit their picks unless they adhere to all [rules](./rules.md) and the [Validation Rules](#validation-rules) below.
   - Mistakes are identified to the user so they can correct them.
   - Their existing picks remain set until they have submitted valid picks.
   - A valid update must include a champion.
@@ -313,7 +313,7 @@ Sign-in is passwordless email OTP via Supabase Auth, with a dedicated Gmail acco
 ### Hosting
 
 - Use Vercel: works well with Next.js and *should* be free.
-- Link to GitHub Actions so we get automatic deployments when new changes are merged to main. 
+- Vercel's GitHub integration deploys every merge to `main` (and a preview of every PR); GitHub Actions only runs the CI checks.
 - From here on, all changes are done on branches and merged via PR.
 
 ## Milestones and Tasks
@@ -457,6 +457,8 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - Task M5: Apply the schema migrations to the production Supabase project #manual
   - Requirements:
     - All four tables exist in Supabase and match the [Data](#data) section.
+  - Notes:
+    - Run `npx supabase link` (it prompts for the database password), then `npx supabase db push`; see the README's Database section.
   - Blockers/Open Questions:
     - Depends on PR 5 and M1.
 
@@ -467,6 +469,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - `is_power_conf` is set from conference, with Notre Dame `true` and UConn `false` (both keep `conference = 'FBS Independent'`).
   - Notes:
     - Document which conferences are treated as power conferences, in one place in the script.
+    - The script writes with `SUPABASE_SECRET_KEY` (RLS gives signed-in users read-only access to `teams`). Develop against the local Supabase stack; production is only for Task M6.
   - Blockers/Open Questions:
     - Depends on PR 5.
 
@@ -538,6 +541,8 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Code for requesting and verifying the OTP follows the auth plans.
   - Notes:
     - Follow [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md); both are being revised for Supabase Auth, so confirm they are final before starting.
+    - Server-side client only, built from `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (see [Configuration](#configuration)); no browser client.
+    - Make the local stack's auth match production (Task M8) in `supabase/config.toml`: self-signup disabled, and the Magic Link email shows `{{ .Token }}`. Locally, the codes arrive in the stack's Mailpit inbox.
   - Blockers/Open Questions:
     - Do M8 first: it verifies the Gmail SMTP sender delivers codes, so end-to-end testing of this PR works from the start.
     - Plan docs are still being updated to reflect Supabase Auth.
@@ -597,6 +602,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Does not re-validate pick contents (per [Decisions](#decisions-from-design-review)).
   - Notes:
     - Tests should cover the exact boundary times, and a request that tries to supply a different user ID.
+    - Signed-in users only have UPDATE privileges on `current_playoff`, `current_tiebreakers`, `champion_id` and `updated_at` (see [Data](#data)), so the update must write only those columns.
   - Blockers/Open Questions:
     - Depends on PRs 7 and 14, and M7.
 
@@ -658,7 +664,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 21: Populate the Rules page
   - User Story: As a user, I would like to read the rules of the game.
   - Requirements:
-    - Static text matching [rules.md](../rules.md), written in terms of weeks of the season rather than dates.
+    - Static text matching [rules.md](./rules.md), written in terms of weeks of the season rather than dates.
   - Notes:
     - None.
   - Blockers/Open Questions:
@@ -675,6 +681,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - The participant data file is git-ignored (it contains emails).
   - Notes:
     - Run order per [Decisions](#decisions-from-design-review): profile first, then submission.
+    - Uses `SUPABASE_SECRET_KEY` (the admin API and the inserts bypass RLS). Develop against the local Supabase stack; production is only for Task M10.
   - Blockers/Open Questions:
     - Depends on PRs 6 and 10.
 
@@ -710,7 +717,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - The README explains how Tyler uses the view.
   - Notes:
     - Postgres arrays lose ordering guarantees in a plain join, so unnest `WITH ORDINALITY` to keep pick order.
-    - The view contains participants' emails, so access should be limited to Tyler and the maintainer.
+    - The view contains participants' emails, so access should be limited to Tyler and the maintainer. A view runs with its owner's rights and bypasses RLS, and Supabase exposes `public` through its API, so revoke all access to the view from `anon` and `authenticated` (Tyler reads it in the dashboard).
   - Blockers/Open Questions:
     - Depends on PRs 5 and 6.
 
