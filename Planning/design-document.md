@@ -274,7 +274,7 @@ Notes on key decisions:
 - `champion_id` is a separate column because the champion is an explicit declared pick, not a function of list position (it can be any of the 12, not necessarily seed 1). Per the design review, the champion must be one of the teams in `current_playoff` at save time; this is enforced client-side (see [Validation Rules](#validation-rules)). Because the champion must be in the top 12 on every save, the old edge case of a champion removed from the top 12 can't occur.
 - `champion_id` is nullable because, per the rules, the champion is only declared starting with the week 6/7 revision — it won't exist on a user's initial submission. A saved update always has one.
 
-**`seasons`** — one row per year, holding the edit window so the server can enforce it (see [session-management-plan.md](./session-management-plan.md), Step 5) and so next year's window is a data change, not a code change. Tyler/the maintainer inserts the row by hand each season.
+**`seasons`** — one row per year, holding the edit window so the server can enforce it (see [session-management-plan.md](./session-management-plan.md), Step 5) and so next year's window is a data change, not a code change. Each season, Tyler/the maintainer adds the row to `supabase/seed.sql` and runs that file in the production SQL editor (see the README).
 
 ```sql
 seasons (
@@ -492,6 +492,8 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - Task M7: Insert the 2026 `seasons` row in production #manual
   - Requirements:
     - The row exists in the production Supabase project and the stored instants have been checked.
+  - Notes:
+    - Paste `supabase/seed.sql` into the dashboard's SQL editor and run it, then run the verification query in the README's "Seasons (edit window)" section.
   - Blockers/Open Questions:
     - Depends on PR 7 and M5.
 
