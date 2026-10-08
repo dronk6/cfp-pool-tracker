@@ -512,8 +512,12 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 9: Add the remaining validation rules
   - User Story: As a user, I would like to be told exactly what is wrong with my picks so I can fix them.
   - Requirements:
-    - `lib/validation.ts` exposes a function that takes the initial picks, the new picks, the champion and the team list, and returns a list of violations (empty = valid), covering rules 1-5 of [Validation Rules](#validation-rules).
-    - Each violation has its own human-readable message, including "No overlap" as a separate message from "no duplicates."
+    - `lib/validation.ts` exposes `validatePicks({ initialTop12, newTop12, newTiebreakers, championId, teams })`, which returns a list of violations (empty = valid), covering rules 1-5 of [Validation Rules](#validation-rules).
+      - The initial First Three Out is not an input, because no rule compares against it. The "No overlap" check compares the new top 12 with the new First Three Out.
+      - A blank slot in the new picks is passed as `null` and reported as a shape violation.
+      - `championId` is `null` when no champion is chosen.
+      - Each team in `teams` is `{ id, name, is_power_conf }`, matching the `teams` columns.
+    - Each violation is `{ rule, message, teamIds? }`: a rule code, its own human-readable message, and the ids of the teams involved where there are any. "No overlap" has its own message, separate from "no duplicates."
     - Unit tests cover each rule passing and failing.
   - Notes:
     - Uses `countMoves` from PR 8.
