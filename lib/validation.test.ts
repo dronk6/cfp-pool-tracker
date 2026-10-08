@@ -107,3 +107,24 @@ describe("duplicate rule", () => {
     expect(rulesOf(picks())).not.toContain("duplicate");
   });
 });
+
+describe("overlap rule", () => {
+  it("reports a team in both the top 12 and the First Three Out", () => {
+    const violations = validatePicks(picks({ newTiebreakers: [1, 13, 14] }));
+    expect(violations.filter((v) => v.rule === "overlap")).toEqual([
+      {
+        rule: "overlap",
+        message: "Ohio State can't be in both the top 12 and the First Three Out.",
+        teamIds: [1],
+      },
+    ]);
+  });
+
+  it("reports an overlapping team as overlap only, not also as a duplicate", () => {
+    expect(rulesOf(picks({ newTiebreakers: [1, 13, 14] }))).not.toContain("duplicate");
+  });
+
+  it("passes when the two lists are disjoint", () => {
+    expect(rulesOf(picks())).not.toContain("overlap");
+  });
+});

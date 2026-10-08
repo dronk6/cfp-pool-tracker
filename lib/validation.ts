@@ -4,7 +4,7 @@ export interface Team {
   is_power_conf: boolean;
 }
 
-export type ViolationRule = "shape" | "unknown-team" | "duplicate";
+export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap";
 
 export interface Violation {
   rule: ViolationRule;
@@ -40,6 +40,7 @@ export function validatePicks(input: PicksInput): Violation[] {
     ...checkUnknownTeams(newTop12, newTiebreakers, championId, teamsById),
     ...checkDuplicates(newTop12, "top 12", nameOf),
     ...checkDuplicates(newTiebreakers, "First Three Out", nameOf),
+    ...checkOverlap(newTop12, newTiebreakers, nameOf),
   ];
 }
 
@@ -106,6 +107,20 @@ function checkDuplicates(
   return [...repeated].map((id) => ({
     rule: "duplicate",
     message: `${nameOf(id)} appears more than once in the ${listName}.`,
+    teamIds: [id],
+  }));
+}
+
+function checkOverlap(
+  top12: readonly (number | null)[],
+  tiebreakers: readonly (number | null)[],
+  nameOf: (id: number) => string,
+): Violation[] {
+  const inTop12 = new Set(top12);
+  const overlapping = new Set(tiebreakers.filter((id): id is number => id !== null && inTop12.has(id)));
+  return [...overlapping].map((id) => ({
+    rule: "overlap",
+    message: `${nameOf(id)} can't be in both the top 12 and the First Three Out.`,
     teamIds: [id],
   }));
 }
