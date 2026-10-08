@@ -40,7 +40,7 @@ This app has no "create an account" flow — participants are pre-registered by 
 Since sign-up is disabled, someone has to create the auth user record for each participant before they can ever request an OTP. This replaces the old `users.json`-style "just add a row" model with a one-time admin action:
 
 1. Tyler collects participant names + emails at the start of the season (however he already does this — spreadsheet, form, text messages).
-2. A small admin script (run locally by Tyler/the maintainer, **not** exposed as a public API route) loops over that list and calls Supabase's **admin API** using the project's `service_role` key (never shipped to the browser, kept in a local `.env` only):
+2. A small admin script (run locally by Tyler/the maintainer, **not** exposed as a public API route) loops over that list and calls Supabase's **admin API** using the project's secret key (`SUPABASE_SECRET_KEY`, which bypasses RLS; never shipped to the browser or set in Vercel, kept in a local `.env.local` only):
    ```js
    const { data, error } = await supabaseAdmin.auth.admin.createUser({
      email: 'john@doe.net',
@@ -62,7 +62,7 @@ This is Tasks M2 and M8 in [design-document.md](./design-document.md). It needs 
 3. Still in the dashboard, under **Authentication → Email Templates**, edit the "Magic Link" template (this is the template Supabase uses for `signInWithOtp` emails). By default it's built around a clickable magic-link button; swap it to surface `{{ .Token }}` instead, so the participant receives an actual 6-digit code to type in, not a link — e.g., "Your CFP Pool Tracker code is: {{ .Token }}. It expires soon."
 4. Optionally tighten the code's lifetime under **Authentication → Settings → Email OTP Expiration** (Supabase defaults to 1 hour; something shorter, like 10 minutes, matches the original plan's intent and the free tier supports changing this).
 
-5. Verify delivery before writing any code: create a confirmed test user with an email address outside the Supabase organization, then request a code directly with `POST <project-url>/auth/v1/otp` (anon key, body `{"email": "...", "create_user": false}`). Confirm the email arrives with a 6-digit code and isn't spam-foldered. If it doesn't arrive, check **Logs → Auth** in the dashboard.
+5. Verify delivery before writing any code: create a confirmed test user with an email address outside the Supabase organization, then request a code directly with `POST <project-url>/auth/v1/otp` (publishable key in the `apikey` header, body `{"email": "...", "create_user": false}`). Confirm the email arrives with a 6-digit code and isn't spam-foldered. If it doesn't arrive, check **Logs → Auth** in the dashboard.
 
 Consumer Gmail allows roughly 500 emails/day, far more than this pool needs.
 
