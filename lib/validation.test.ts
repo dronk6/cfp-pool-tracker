@@ -153,3 +153,29 @@ describe("g6-required rule", () => {
     expect(rulesOf(picks({ newTop12: withUnknown }))).not.toContain("g6-required");
   });
 });
+
+describe("champion rules", () => {
+  it("requires a champion", () => {
+    const violations = validatePicks(picks({ championId: null }));
+    expect(violations).toEqual([{ rule: "champion-required", message: "Choose a champion." }]);
+  });
+
+  it("reports a champion outside the top 12", () => {
+    const violations = validatePicks(picks({ championId: 12 }));
+    expect(violations).toEqual([
+      {
+        rule: "champion-not-in-top-12",
+        message: "Team 12 is your champion, but isn't in your top 12. Choose a champion from your top 12.",
+        teamIds: [12],
+      },
+    ]);
+  });
+
+  it("also reports an unrecognized champion as not in the top 12", () => {
+    expect(rulesOf(picks({ championId: 9999 }))).toEqual(["unknown-team", "champion-not-in-top-12"]);
+  });
+
+  it("passes when the champion is in the top 12", () => {
+    expect(rulesOf(picks({ championId: 16 }))).toEqual([]);
+  });
+});

@@ -4,7 +4,7 @@ export interface Team {
   is_power_conf: boolean;
 }
 
-export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap" | "g6-required";
+export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap" | "g6-required" | "champion-required" | "champion-not-in-top-12";
 
 export interface Violation {
   rule: ViolationRule;
@@ -42,6 +42,7 @@ export function validatePicks(input: PicksInput): Violation[] {
     ...checkDuplicates(newTiebreakers, "First Three Out", nameOf),
     ...checkOverlap(newTop12, newTiebreakers, nameOf),
     ...checkGroupOfSix(newTop12, teamsById),
+    ...checkChampion(newTop12, championId, nameOf),
   ];
 }
 
@@ -145,6 +146,24 @@ function checkGroupOfSix(
       rule: "g6-required",
       message:
         "The top 12 must include at least one team from a non-power conference (Notre Dame counts as a power-conference team; UConn does not).",
+    },
+  ];
+}
+
+function checkChampion(
+  top12: readonly (number | null)[],
+  championId: number | null,
+  nameOf: (id: number) => string,
+): Violation[] {
+  if (championId === null) {
+    return [{ rule: "champion-required", message: "Choose a champion." }];
+  }
+  if (top12.includes(championId)) return [];
+  return [
+    {
+      rule: "champion-not-in-top-12",
+      message: `${nameOf(championId)} is your champion, but isn't in your top 12. Choose a champion from your top 12.`,
+      teamIds: [championId],
     },
   ];
 }
