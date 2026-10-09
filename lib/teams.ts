@@ -13,7 +13,7 @@ export type Team = {
 export type SessionTeams = { signedIn: false } | { signedIn: true; teams: Team[] };
 
 /**
- * Every team, sorted by name, for a signed-in user. The only check is a
+ * Every team, ordered by name (the database's ordering), for a signed-in user. The only check is a
  * verified session (no `profiles` row needed). Throws if the lookup fails, so
  * callers can tell "signed out" from "couldn't look". Never cached: the
  * session decides who may see the list.

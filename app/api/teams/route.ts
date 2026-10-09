@@ -7,7 +7,7 @@ const headers = { "Cache-Control": "no-store" };
 const respond = (body: object, status: number) => NextResponse.json(body, { status, headers });
 
 /**
- * The reference list of teams, sorted by name, for any signed-in user. Takes
+ * The reference list of teams, ordered by name (the database's ordering), for any signed-in user. Takes
  * no request argument on purpose: nothing from the request but the verified
  * session cookie is read.
  */

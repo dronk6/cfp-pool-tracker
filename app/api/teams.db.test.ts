@@ -97,7 +97,7 @@ describe.skipIf(!runDbTests)("GET /api/teams against the local stack", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("returns the seeded teams, sorted by name, to a signed-in user", async () => {
+  it("returns the seeded teams, in the database's name order, to a signed-in user", async () => {
     const { GET } = await import("./teams/route");
     await signInAs(withProfile.email);
 
@@ -106,10 +106,13 @@ describe.skipIf(!runDbTests)("GET /api/teams against the local stack", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     const body: TeamRow[] = await response.json();
-    // `seeded` is read with the same order-by-name query, so equality also
-    // pins the order. Database collation decides it ("Utah" sorts before
-    // "UTEP"), which is not a plain JavaScript string sort.
-    expect(body).toEqual(seeded);
+    // `seeded` is read with the same order-by-name query, so equality on the
+    // stable columns also pins the route to the database's order. image_url is
+    // left out because seed-teams.db.test.ts changes it while running in
+    // parallel; it only has to be a string or null.
+    const stable = ({ id, name, conference, is_power_conf }: TeamRow) => ({ id, name, conference, is_power_conf });
+    expect(body.map(stable)).toEqual(seeded.map(stable));
+    for (const team of body) expect(team.image_url === null || typeof team.image_url === "string").toBe(true);
     expect(body.find((team) => team.id === 87)).toMatchObject({ name: "Notre Dame", is_power_conf: true });
     expect(body.find((team) => team.id === 41)).toMatchObject({ name: "UConn", is_power_conf: false });
   });
@@ -131,6 +134,7 @@ describe.skipIf(!runDbTests)("GET /api/teams against the local stack", () => {
 
     const { data, error } = await anon.from("teams").select("id");
 
+    // Either an error or an empty result means RLS blocked anon.
     expect(error ? [] : data).toEqual([]);
   });
 });
