@@ -30,8 +30,8 @@ Copy [.env.example](./.env.example) to `.env.local` and fill in the values. `.en
 
 | Name | Used by | Where to set it | Secret? |
 |------|---------|-----------------|---------|
-| `SUPABASE_URL` | Server-side Supabase client and middleware | `.env.local` and Vercel (Production and Preview) | No |
-| `SUPABASE_PUBLISHABLE_KEY` | Server-side Supabase client and middleware | `.env.local` and Vercel (Production and Preview) | No, safe to expose by design, but kept server-only here per the design doc |
+| `SUPABASE_URL` | Server-side Supabase client and proxy | `.env.local` and Vercel (Production and Preview) | No |
+| `SUPABASE_PUBLISHABLE_KEY` | Server-side Supabase client and proxy | `.env.local` and Vercel (Production and Preview) | No, safe to expose by design, but kept server-only here per the design doc |
 | `SUPABASE_SECRET_KEY` | Local admin scripts only (seeding teams and participants) | `.env.local` only. **Never set it in Vercel.** | Yes. It bypasses row-level security |
 
 None of these use the `NEXT_PUBLIC_` prefix, so Next.js never ships them to the browser. The browser does not talk to Supabase directly; all database access goes through Next.js server code. Do not add a `NEXT_PUBLIC_` prefix to any of them.
@@ -40,7 +40,7 @@ Notes:
 
 - The Gmail app password used to send login codes is **not** an environment variable. It lives only in the Supabase dashboard under **Auth → SMTP Settings**.
 - Applying migrations needs no environment variable: `npx supabase link` prompts for the database password (see [Database](#database)).
-- So far only the teams seed script (`npm run seed:teams`) and the opt-in database tests read `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; the app's Supabase client arrives in a later change. The build does not require any of them to be set.
+- The teams seed script (`npm run seed:teams`) and the opt-in database tests read `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; the app itself reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (when handling a request, not at import time). The build does not require any of them to be set.
 
 **Vercel setup:** in the Vercel project settings under **Environment Variables**, add `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for Production and Preview. Do not add `SUPABASE_SECRET_KEY`. Merges to `main` are deployed by Vercel's GitHub integration; there is no deploy workflow in this repo.
 
@@ -55,7 +55,7 @@ RUN_DB_TESTS=1 npm test                        # bash / Git Bash
 $env:RUN_DB_TESTS = "1"; npm test              # PowerShell (stays set for that terminal; Remove-Item Env:RUN_DB_TESTS to unset)
 ```
 
-They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern.
+They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern. `app/api/auth/otp.db.test.ts` runs the sign-in routes against the stack (it also needs `SUPABASE_PUBLISHABLE_KEY` in `.env.local`); it creates throwaway users and deletes them afterwards, and fakes only `next/headers`. Run just it with `RUN_DB_TESTS=1 npx vitest run app/api/auth/otp.db`.
 
 ### Routes
 
@@ -66,6 +66,29 @@ They write to the local database, and refuse to run unless `SUPABASE_URL` points
 | `/my-picks` | My Picks |
 
 Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
+
+## Authentication
+
+Participants sign in without a password: they ask for a code by email and type it in. There is no sign-up; participants are created by an admin script (see [Planning/otp-authentication-plan.md](./Planning/otp-authentication-plan.md)). The sign-in page and nav changes are not built yet, so for now the routes can only be called directly.
+
+| Route | Body | Result |
+|-------|------|--------|
+| `POST /api/auth/request-otp` | `{ "email": "..." }` | `200 {"success":true}` whether or not the email is a participant, and whether or not Supabase errored or rate limited (so it can't be used to find out who is registered). The email is sent after the response (Next.js `after()`), so response time doesn't reveal registration either. `400 {"success":false,"error":"invalid-email"}` for malformed input. |
+| `POST /api/auth/verify-otp` | `{ "email": "...", "otp": "..." }` | `200 {"success":true}` and the session cookies on success; `401 {"success":false}` for any failure. The code length is a Supabase setting (8 characters in production), so the route only checks that the code is digits. |
+
+Code layout:
+
+- [lib/supabase/server.ts](./lib/supabase/server.ts): `createSupabaseServerClient()`, the only Supabase client the app uses (there is no browser client). It reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` when called and throws a clear error if they are missing. Session cookies are HttpOnly, SameSite=Lax, and Secure in production ([lib/supabase/config.ts](./lib/supabase/config.ts)).
+- [lib/auth/current-user.ts](./lib/auth/current-user.ts): `getCurrentUser()` returns the signed-in user or `null` (it re-validates with Supabase via `getUser()`). Use it in Server Components and Route Handlers to decide who is asking; never trust a user id sent by the client.
+- [proxy.ts](./proxy.ts) (Next.js 16's name for middleware) refreshes the session on every request except static assets. It does not protect any page or redirect; it fails open if Supabase is unreachable.
+
+**Trying it locally:** start the local stack, run `npm run dev`, then request a code:
+
+```bash
+curl -X POST localhost:3000/api/auth/request-otp -H "Content-Type: application/json" -d '{"email":"someone@example.com"}'
+```
+
+The email goes to the stack's Mailpit inbox (http://127.0.0.1:54324), not a real mailbox, and is only sent if that email belongs to an existing user. Create one in local Studio (Authentication, Add user, tick Auto Confirm User). The local auth settings in [supabase/config.toml](./supabase/config.toml) (no sign-up, 30 second resend limit, 8-character codes, code-only email from [supabase/templates/magic_link.html](./supabase/templates/magic_link.html)) mirror production. A running stack only picks up changes to that file after `npx supabase stop` and `npx supabase start`.
 
 ## Continuous Integration
 

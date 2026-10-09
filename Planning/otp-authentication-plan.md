@@ -59,10 +59,10 @@ This is Tasks M2 and M8 in [design-document.md](./design-document.md). It needs 
 
 1. Create a dedicated Gmail account (not a personal one), enable 2-step verification, and generate an app password.
 2. In the Supabase dashboard, go to **Authentication → Emails → SMTP Settings**, enable "Custom SMTP," and enter `smtp.gmail.com`, port 465 or 587, the full Gmail address as username and sender email, and the app password (no spaces) as the password. These credentials live only in the dashboard, never in the app's environment variables.
-3. Still in the dashboard, under **Authentication → Email Templates**, edit the "Magic Link" template (this is the template Supabase uses for `signInWithOtp` emails). By default it's built around a clickable magic-link button; swap it to surface `{{ .Token }}` instead, so the participant receives an actual 6-digit code to type in, not a link — e.g., "Your CFP Pool Tracker code is: {{ .Token }}. It expires soon."
+3. Still in the dashboard, under **Authentication → Email Templates**, edit the "Magic Link" template (this is the template Supabase uses for `signInWithOtp` emails). By default it's built around a clickable magic-link button; swap it to surface `{{ .Token }}` instead, so the participant receives an actual code to type in, not a link — e.g., "Your CFP Pool Tracker code is: {{ .Token }}. It expires soon."
 4. Optionally tighten the code's lifetime under **Authentication → Settings → Email OTP Expiration** (Supabase defaults to 1 hour; something shorter, like 10 minutes, matches the original plan's intent and the free tier supports changing this).
 
-5. Verify delivery before writing any code: create a confirmed test user with an email address outside the Supabase organization, then request a code directly with `POST <project-url>/auth/v1/otp` (publishable key in the `apikey` header, body `{"email": "...", "create_user": false}`). Confirm the email arrives with a 6-digit code and isn't spam-foldered. If it doesn't arrive, check **Logs → Auth** in the dashboard.
+5. Verify delivery before writing any code: create a confirmed test user with an email address outside the Supabase organization, then request a code directly with `POST <project-url>/auth/v1/otp` (publishable key in the `apikey` header, body `{"email": "...", "create_user": false}`). Confirm the email arrives with a code and isn't spam-foldered. If it doesn't arrive, check **Logs → Auth** in the dashboard.
 
 Consumer Gmail allows roughly 500 emails/day, far more than this pool needs.
 
@@ -100,7 +100,9 @@ export async function POST(request) {
 
 The key rule, carried over from the original plan: **the response body and status code must be identical whether the email belongs to a real participant or not.** Don't branch on Supabase's error type when deciding what to send back.
 
-One exception worth calling out: if Supabase returns a *rate-limit* error (too many requests for that email recently), that's about abuse prevention, not identity — it's fine to return a slightly different, still-generic message like "please wait a bit before requesting another code," since that doesn't reveal whether the email is registered.
+Rate-limit errors are flattened too. The per-email limit (`max_frequency`, 30 seconds) only fires for emails that exist, so a distinct "please wait" response would reveal which emails are registered: request twice, and only a registered email gets the rate-limit error (confirmed against the local stack). Every Supabase error, rate limits included, is logged server-side without the email and answered with the same `{ success: true }`. The login form should instead disable its "send a new code" button for 30 seconds.
+
+Timing is flattened too (the sketch above awaits the call only for simplicity). Supabase sends the email inline for a registered user (slow) but fails immediately for an unknown one, so awaiting `signInWithOtp` would let a caller tell the two apart by response time. The route validates the input, answers `{ success: true }` straight away, and calls `signInWithOtp` inside Next.js's `after()`, so the response time no longer depends on whether the email is registered. That call uses a cookie-less `supabase-js` client, since `signInWithOtp` sets no session and `after()` cannot set cookies.
 
 ### Step 5: Build `POST /api/auth/verify-otp`
 
