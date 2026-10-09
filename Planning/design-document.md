@@ -73,7 +73,7 @@ As a user, I want to log into the site to view and manage my picks.
 - Add a form requesting an OTP from the user.
   - Actions:
     - If the password is correct, send the user to the "My Picks" page.
-    - If the password is incorrect, offer them "Send a New Code" and "Cancel" buttons
+    - Show "Send a New Code" and "Cancel" buttons as soon as this form appears, so a user whose code never arrives (or who mistyped their email) isn't stuck. If the password is incorrect, also say so.
   - Notes:
     - Only show this once the password has been sent to the user's email address.
     - Refreshing the page should send the user back to the start of login process.
@@ -169,7 +169,7 @@ As a user, I want to navigate between pages available to me.
 - Create navigation bar component.
 - Add the component to all pages.
 - Link to all existing pages.
-- If a user is logged in, show a "Log Out" button in the top right corner with an "Are You Sure?" confirmation dropdown.
+- If a user is logged out, show a "Log In" link in the top right corner. If they are logged in, show an avatar button there instead, which opens an "Are you sure?" dropdown with "Log Out" and "Cancel".
 - Add hamburger menu with side panel for mobile navigation
 
 #### Wireframe
@@ -559,13 +559,15 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - User Story: As a user, I would like to log in with my email so I can view and manage my picks.
   - Requirements:
     - Email form always shows the same generic message after submit, whether or not the email is registered.
-    - OTP form appears only after a code has been requested; correct code goes to My Picks; incorrect code offers "Send a New Code" and "Cancel."
+    - OTP form appears only after a code has been requested; correct code goes to My Picks; "Send a New Code" and "Cancel" are shown as soon as the OTP form appears, and an incorrect code says so.
     - Refreshing the page returns the user to the start of the login flow.
     - The My Picks page is blocked for logged-out users: the proxy redirects them to `/login`, and a logged-in user opening `/login` goes to My Picks.
     - "Send a New Code" is disabled for 30 seconds after a code is requested.
   - Notes:
     - See [Login Component](#login-component).
     - The login form lives on its own `/login` page. Nav bar changes (the "Log In" link) belong to PR 12.
+    - After a correct code, do a full page load to My Picks (not a client-side navigation), so the server-rendered nav updates and no cached redirect is reused.
+    - Gated pages fail closed: if the session can't be checked (e.g. Supabase is unreachable), redirect to `/login`. There is no "return to" parameter; redirect targets are fixed.
   - Blockers/Open Questions:
     - Depends on PR 10 and M8.
 
@@ -573,11 +575,11 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - User Story: As a user, I would like to log out when I'm done.
   - Requirements:
     - Logged-out users see a "Log In" link (to `/login`) in the top right of the nav bar.
-    - Logged-in users see an avatar button there instead. It opens a dropdown asking "Are you sure?" with "Log Out" and "Cancel"; "Log Out" calls `POST /api/logout`, which signs the user out with Supabase.
+    - Logged-in users see an avatar button there instead. It opens a dropdown asking "Are you sure?" with "Log Out" and "Cancel"; "Log Out" calls `POST /api/logout`, which signs the user out of this device only (`signOut({ scope: "local" })`) with Supabase, then does a full page load to the Home page.
     - `GET /api/me` returns the name and email of the session user, and rejects requests without a valid session.
   - Notes:
     - The user ID always comes from the verified session, never the request.
-    - The root layout reads the session user on the server and passes it to the nav bar, so the nav updates after login and logout without a client fetch. Pages therefore render per request. `GET /api/me` still exists for client use.
+    - The root layout reads the session user on the server and passes it to the nav bar, so the nav updates after login and logout without a client fetch. Because the app uses Next.js Cache Components, the read happens in a component inside a `<Suspense>` boundary: pages keep a prerendered shell and only the nav's account area renders per request. Only the user's name is passed to the browser. `GET /api/me` still exists for client use.
     - See the nav bar wireframe (`nav-bar-mock.png`).
   - Blockers/Open Questions:
     - Depends on PRs 2 and 10. It can be built in parallel with PR 11; merge PR 11 first, then bring this branch up to date.
@@ -775,8 +777,10 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **`profiles.id` references `auth.users(id)`** (on delete cascade), so a profile can't exist without its auth user. The seeding script already creates the auth user first.
 - **Row Level Security:** enabled on all four tables, with minimal policies (own profile and submission only; `teams` and `seasons` readable when signed in; nothing for anonymous requests). Without RLS, anyone holding the publishable key could read every table, including participants' emails. RLS with *no* policies was rejected because the deployed server uses the publishable key, so it would block every app query. Column privileges also limit signed-in users' updates on `submissions` to `current_playoff`, `current_tiebreakers`, `champion_id` and `updated_at`, since RLS policies can't restrict columns. See [Data](#data).
 - **Login page and route gating:** the login form lives on a dedicated `/login` page. Next.js 16's `proxy.ts` (formerly `middleware.ts`) refreshes the session on every request (PR 10) and redirects logged-out users from My Picks to `/login` (PR 11).
-- **Nav bar login state:** the root layout reads the session user on the server and passes it to the nav bar, rather than the nav bar fetching `GET /api/me`. This avoids a logged-out flash and needs no refetch after login or logout; the cost is that pages render per request, which is fine at this scale. Logged out: a "Log In" link. Logged in: an avatar button whose dropdown confirms "Log Out" (PR 12).
+- **Nav bar login state:** the root layout reads the session user on the server and passes it to the nav bar, rather than the nav bar fetching `GET /api/me`. This avoids a logged-out flash and needs no refetch after login or logout; the account area renders per request inside a `<Suspense>` boundary (required by Cache Components), while the rest of each page stays prerendered. Logged out: a "Log In" link. Logged in: an avatar button whose dropdown confirms "Log Out" (PR 12).
 - **Login rate limits don't get their own message:** Supabase's 30-second minimum interval is per email and may apply only to registered addresses, so a distinct "please wait" response could reveal who is registered. The request-code route returns the same generic success for rate-limit errors as for everything else, and the login form disables "Send a New Code" for 30 seconds instead.
+- **Login flow details (PR 11):** "Send a New Code" and "Cancel" appear as soon as the code form does. Gated pages fail closed when the session can't be checked, there is no "return to" parameter, and a successful login does a full page load.
+- **Log out scope (PR 12):** "Log Out" signs the user out of the current device only, so logging out on a laptop doesn't end their phone session. `POST /api/logout` needs no CSRF token: it is POST-only and the session cookies are `SameSite=Lax`, so a cross-site request arrives signed out.
 - **Code length:** production sends 8-digit codes (Supabase's default) and the local stack matches. The verify route doesn't assume a length.
 
 ## Open Questions
