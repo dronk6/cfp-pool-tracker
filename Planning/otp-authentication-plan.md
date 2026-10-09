@@ -150,7 +150,7 @@ Supabase handles the "wrong code," "expired code," and "too many attempts" cases
 
 ## Open Questions
 
-- How does Tyler want to hand off the participant name/email list for seeding each season — a plain text/CSV file the maintainer runs the script against, or something Tyler can trigger himself without touching code? (Doesn't block building the script either way; the script's input format is easy to change later.)
+- ~~How does Tyler want to hand off the participant name/email list?~~ Resolved for this season: a CSV (`Name,Email,Pick 1..12,First Out 1..3`) that the maintainer runs `npm run seed:participants` against; see the README's "Seeding participants". Something Tyler can trigger himself is a future-seasons question.
 - If a custom domain is ever acquired, do we want to move to a branded "from" address (e.g., `codes@cfppooltracker.com`) via a transactional email service? Cosmetic; not needed for this season.
 
 ## Resources

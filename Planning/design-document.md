@@ -690,10 +690,12 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 22: Add the participant seeding script
   - User Story: As the maintainer, I would like to load every participant and their initial picks so they can log in and see their picks.
   - Requirements:
-    - Script takes a data file of participants (name, email, initial picks as team names) and, for each: creates the Supabase `auth.users` entry, upserts the `profiles` row, then inserts the `submissions` row with `initial_*` and `current_*` set equal.
-    - Team names are resolved to team IDs; unknown or ambiguous names fail loudly, and nothing is partially inserted for that participant.
-    - Safe to re-run.
-    - The participant data file is git-ignored (it contains emails).
+    - Script takes a CSV of participants (header `Name,Email,Pick 1,...,Pick 12,First Out 1,First Out 2,First Out 3`, team names as in `teams`) and, for each: creates the Supabase `auth.users` entry (reusing an existing one by normalized email), upserts the `profiles` row, then inserts the `submissions` row with `initial_*` and `current_*` set equal.
+    - The whole file is validated before any write: team names are matched by trimmed, case-insensitive exact name, and unknown or ambiguous names, a team picked twice, a wrong shape or a duplicate email fail loudly with every error listed, so a bad row means zero rows written. A missing G6 team is only a warning.
+    - Safe to re-run: an existing submission is never modified (insert with `ON CONFLICT (user_id, year) DO NOTHING`), so participants' later edits survive. If the file's initial picks differ from a stored submission, the row is reported and the script exits non-zero; fixing it is a manual SQL step in the README.
+    - Dry run by default; writes need `--apply`, and a non-local `SUPABASE_URL` also needs `--production`. `--year` is required and must exist in `seasons`.
+    - The participant data file lives in the git-ignored `private/` folder (it contains emails); the script refuses a file git doesn't ignore. A fake template is committed at `scripts/seed-participants/participants.example.csv`.
+    - Prints per-participant status (`created`, `existing` or `differs`, by spreadsheet row number and name, never email) and, after `--apply`, the database's actual counts of `auth.users`, `profiles` and `submissions` for the year (for Task M10's check against the participant list).
   - Notes:
     - Run order per [Decisions](#decisions-from-design-review): profile first, then submission.
     - Uses `SUPABASE_SECRET_KEY` (the admin API and the inserts bypass RLS). Develop against the local Supabase stack; production is only for Task M10.
@@ -702,14 +704,17 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 
 - Task M9: Collect every participant's initial picks from Tyler #manual
   - Requirements:
-    - A single data file exists with every participant's name, email and initial picks (top 12 and First Three Out) in the format PR 22 expects.
+    - A single CSV exists with every participant's name, email and initial picks (top 12 and First Three Out) in the format PR 22 expects (see the template at `scripts/seed-participants/participants.example.csv`).
+    - The file is saved as "CSV UTF-8" and kept in the git-ignored `private/` folder.
     - Team names in the file match the `teams` table spelling, or are flagged for correction.
   - Blockers/Open Questions:
     - Depends on Tyler. Agree the format with him before he starts, ideally using PR 22's expected format.
 
 - Task M10: Run the seeding script against production #manual
   - Requirements:
-    - Row counts for `auth.users`, `profiles` and `submissions` match the participant list. Nobody is told the site is live until this is done.
+    - Production values are in `.env.local` temporarily; run `npm run seed:participants -- --year 2026` as a dry run first and fix every error.
+    - Check the printed host is the production project, then run it again with `--apply --production`.
+    - Row counts for `auth.users`, `profiles` and `submissions` (as printed after `--apply`) match the participant list, and the run exited 0 with no `differs` rows. Nobody is told the site is live until this is done.
   - Blockers/Open Questions:
     - Depends on PR 22, M5, M6, M8 and M9.
 
@@ -765,6 +770,7 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **Is the G6 requirement enforced?** Yes. The top 12 must include at least one team with `is_power_conf = false`, so `is_power_conf` carries real validation weight.
 - **Supabase free-tier pausing:** no keep-alive ping. Tyler/the maintainer manually unpauses the project before each season. Instructions live in the README's "Admin Responsibilities" section.
 - **Seeding order of `profiles` vs. `submissions`:** this season only, participants' contact info *and* initial submissions are inserted manually by the maintainer, in the same session (profile first, then submission), because initial picks were collected before the app existed. Nobody should be told the site is live until both exist for every participant. Self-service invitation, sign-in and initial submission are out of scope and will be designed for future seasons (roadmap).
+- **Participant seeding input and safety:** the hand-off is a CSV (one row per participant, 12 picks and 3 First Three Out as team names) that the maintainer runs the script against; Tyler does not run it. The file holds emails, so it lives in git-ignored `private/`, and the script refuses a file git doesn't ignore. The script is a dry run unless `--apply` is given, and a non-local `SUPABASE_URL` additionally needs `--production`. It never modifies an existing submission (insert-only), so re-running can't overwrite participants' edits; correcting someone's initial picks is a manual SQL step. Team names must match `teams` exactly (case and spacing aside) with no alias table; the whole file is validated before any write, with no rollback because every step is idempotent. A missing G6 pick is a warning, not an error, since the pool predates the app.
 - **Champion:** chosen only during the October modification window, does not count as a move, and is **required** for an update to be valid. The champion must be one of the 12 teams in the updated top 12.
 - **How Tyler views everyone's picks:** no in-app admin page this season. Tyler reads picks through a documented `all_submissions` SQL view in the Supabase dashboard (PR 24), which shows team names rather than IDs. An in-app admin page is deferred to the roadmap.
 - **Where validation lives:** all pick-content validation is client-side only, and the API trusts it. The server still enforces the session, row ownership, and the edit window (`seasons` table). Accepted risk: a user calling the API directly could save invalid picks; acceptable for a ~50-100 person friendly pool.
