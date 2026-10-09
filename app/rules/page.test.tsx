@@ -58,4 +58,17 @@ describe("RulesPage", () => {
     expect(list).toHaveTextContent(/ACC, Big Ten, Big 12 and SEC/);
     expect(list).toHaveTextContent(/at least one G6 team/);
   });
+
+  it("renders the After the Adjustment section", () => {
+    render(<RulesPage />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "After the Adjustment" })).toBeInTheDocument();
+  });
+
+  it("renders move-counting examples", () => {
+    const { container } = render(<RulesPage />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Examples" })).toBeInTheDocument();
+    expect(container).toHaveTextContent("4 moves, which is not valid");
+  });
 });

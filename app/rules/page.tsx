@@ -96,6 +96,32 @@ export default function RulesPage() {
         </ol>
         <p>If an update is not valid, your previous picks stay in place.</p>
       </section>
+
+      <section>
+        <h2>After the Adjustment</h2>
+        <p>After the adjustment window closes, everyone&apos;s picks are shared so you can strategize.</p>
+      </section>
+
+      <section>
+        <h2>Examples</h2>
+        <p>Each example is counted against your initial picks.</p>
+        <ul>
+          <li>Replace one team with a new team in the same slot: 1 move.</li>
+          <li>Reorder any number of the teams you are keeping: 1 move in total.</li>
+          <li>Replace a team in its slot and swap two other teams: 2 moves.</li>
+          <li>
+            Replace a team but put the new team in a different slot than the one it replaced: 2 moves (1 replacement plus
+            1 reorder).
+          </li>
+          <li>Replace three different teams, each in its own slot: 3 moves.</li>
+          <li>Replace three teams in their slots and also reorder anyone: 4 moves, which is not valid.</li>
+          <li>
+            Drop a team to your first 3 out and move a first-out team into its slot: 1 move, since changes to your first
+            3 out are free.
+          </li>
+          <li>Reorder only your first 3 out: 0 moves.</li>
+        </ul>
+      </section>
     </main>
   );
 }
