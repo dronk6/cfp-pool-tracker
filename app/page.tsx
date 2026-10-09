@@ -32,6 +32,11 @@ export default function HomePage() {
           update isn&apos;t valid, your previous picks stay in place. Outside the window, your picks are view-only.
         </p>
       </section>
+
+      <section>
+        <h2>Questions?</h2>
+        <p>Ask Tyler.</p>
+      </section>
     </main>
   );
 }

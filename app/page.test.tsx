@@ -16,6 +16,13 @@ describe("HomePage", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Viewing and Modifying Picks" })).toBeInTheDocument();
   });
 
+  it("renders the Questions? section", () => {
+    render(<HomePage />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "Questions?" })).toBeInTheDocument();
+    expect(screen.getByText("Ask Tyler.")).toBeInTheDocument();
+  });
+
   it("links to the rules, login and My Picks pages", () => {
     render(<HomePage />);
 
