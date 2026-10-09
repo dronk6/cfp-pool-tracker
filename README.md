@@ -111,6 +111,14 @@ To try it: follow "Trying it locally" above, open http://localhost:3000/login, a
 
 The root layout ([app/layout.tsx](./app/layout.tsx)) reads the session user on the server in `SessionNavBar` and passes only the user's name to the nav bar, wrapped in `<Suspense>` because a session read can't be prerendered (the rest of each page stays in the static shell). While that loads, the right end of the bar is empty, so a signed-in user never sees a flash of "Log In". Signed out, it shows a **Log In** link to `/login`; signed in, an avatar button opens a small "Are you sure?" menu with **Log Out** and **Cancel**. Log Out calls `POST /api/logout`, then reloads the home page; if the call fails the menu stays open with an error. If looking up the user fails, the bar falls back to the signed-out view instead of breaking the page. `GET /api/me` isn't used by the nav bar; it is there for client code that needs to know who is signed in.
 
+### Reading teams
+
+| Route | Result |
+|-------|--------|
+| `GET /api/teams` | `200` with a bare JSON array of every team, sorted by name: `[{"id":87,"name":"Notre Dame","conference":"FBS Independent","is_power_conf":true,"image_url":"https://..."}, ...]`. Field names are snake_case to match the database and `lib/validation`'s `Team`, so the array can go straight into `validatePicks`. `image_url` is `null` if a team has no logo. An empty `teams` table gives `200 []`. `401 {"error":"unauthenticated"}` without a valid session (a `profiles` row is not required); `500 {"error":"internal"}`. Never cached. |
+
+The lookup lives in `getTeams()` in [lib/teams.ts](./lib/teams.ts). Server components (such as My Picks and the edit view) should call it directly rather than fetch this route. `app/api/teams.db.test.ts` runs the route against the local stack; it reads the seeded teams and never writes to `teams`, so run `npm run seed:teams` first (`RUN_DB_TESTS=1 npx vitest run app/api/teams.db`).
+
 ## Continuous Integration
 
 A GitHub Actions workflow ([.github/workflows/ci.yml](./.github/workflows/ci.yml)) runs on every pull request and on every push to `main`. It installs dependencies with `npm ci`, then runs `npm run lint`, `npm test`, `npm run typecheck` (`next typegen && tsc --noEmit`) and `npm run build`. It does not deploy (Vercel handles deployment).
