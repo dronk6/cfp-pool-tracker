@@ -55,7 +55,7 @@ RUN_DB_TESTS=1 npm test                        # bash / Git Bash
 $env:RUN_DB_TESTS = "1"; npm test              # PowerShell (stays set for that terminal; Remove-Item Env:RUN_DB_TESTS to unset)
 ```
 
-They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern. `app/api/auth/otp.db.test.ts` runs the sign-in routes against the stack (it also needs `SUPABASE_PUBLISHABLE_KEY` in `.env.local`); it creates throwaway users and deletes them afterwards, and fakes only `next/headers`. Run just it with `RUN_DB_TESTS=1 npx vitest run app/api/auth/otp.db`.
+They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern. `app/api/auth/otp.db.test.ts` runs the sign-in routes against the stack (it also needs `SUPABASE_PUBLISHABLE_KEY` in `.env.local`), and `app/api/session.db.test.ts` does the same for `/api/me` and `/api/logout`; it creates throwaway users and deletes them afterwards, and fakes only `next/headers`. Run just those with `RUN_DB_TESTS=1 npx vitest run app/api/auth/otp.db` or `... app/api/session.db`.
 
 ### Routes
 
@@ -65,7 +65,7 @@ They write to the local database, and refuse to run unless `SUPABASE_URL` points
 | `/rules` | Rules |
 | `/my-picks` | My Picks |
 
-Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
+Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. The right end of the bar shows a Log In link, or an account menu when signed in (see [Signing out and the nav bar](#signing-out-and-the-nav-bar)). To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
 
 ## Authentication
 
@@ -89,6 +89,15 @@ curl -X POST localhost:3000/api/auth/request-otp -H "Content-Type: application/j
 ```
 
 The email goes to the stack's Mailpit inbox (http://127.0.0.1:54324), not a real mailbox, and is only sent if that email belongs to an existing user. Create one in local Studio (Authentication, Add user, tick Auto Confirm User). The local auth settings in [supabase/config.toml](./supabase/config.toml) (no sign-up, 30 second resend limit, 8-character codes, code-only email from [supabase/templates/magic_link.html](./supabase/templates/magic_link.html)) mirror production. A running stack only picks up changes to that file after `npx supabase stop` and `npx supabase start`.
+
+### Signing out and the nav bar
+
+| Route | Result |
+|-------|--------|
+| `GET /api/me` | `200 {"name":"...","email":"..."}` for the session user. `401 {"error":"unauthenticated"}` without a valid session; `404 {"error":"profile-not-found"}` if the user has no `profiles` row; `500 {"error":"internal"}`. The user always comes from the verified session, never from the request. Never cached. |
+| `POST /api/logout` | `200 {"success":true}` after signing out this device only (`scope: "local"`; other devices stay signed in), and clears the session cookies. Also `200` if nobody was signed in. `500 {"success":false}` if Supabase fails. There is no CSRF token: the cookies are SameSite=Lax, so browsers don't send them on cross-site POSTs, and the route is POST-only. |
+
+The root layout ([app/layout.tsx](./app/layout.tsx)) reads the session user on the server in `SessionNavBar` and passes only the user's name to the nav bar, wrapped in `<Suspense>` because a session read can't be prerendered (the rest of each page stays in the static shell). While that loads, the right end of the bar is empty, so a signed-in user never sees a flash of "Log In". Signed out, it shows a **Log In** link to `/login`; signed in, an avatar button opens a small "Are you sure?" menu with **Log Out** and **Cancel**. Log Out calls `POST /api/logout`, then reloads the home page; if the call fails the menu stays open with an error. If looking up the user fails, the bar falls back to the signed-out view instead of breaking the page. `GET /api/me` isn't used by the nav bar; it is there for client code that needs to know who is signed in.
 
 ## Continuous Integration
 

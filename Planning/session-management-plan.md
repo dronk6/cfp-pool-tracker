@@ -78,6 +78,8 @@ Client Components can't read the session cookies directly (they're `HttpOnly`), 
 - `GET /api/me` (or a Server Component that does this directly for a page that doesn't need client-side fetching): call `supabase.auth.getUser()` to get the authenticated user's id and email, then look up the matching `profiles` row (name, etc. — see the OTP doc's seeding step for how that row got there) and return it as JSON.
 - The client calls this once on app load (e.g., a top-level layout or shared auth context) to know who's logged in and display their info.
 
+> **Update (issue #20):** the root layout reads the session user on the server and passes it to the nav bar, so the client does not call `/api/me` on load; the route remains for client use.
+
 ### Step 4: Scope data requests to the logged-in user
 
 When the "My Picks" page needs to fetch a user's submission, server-side code (not the client) should:
