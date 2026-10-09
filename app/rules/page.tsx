@@ -89,21 +89,14 @@ export default function RulesPage() {
           <li>You have 12 different teams in your top 12 and 3 different teams in your first 3 out, with no overlap.</li>
           <li>
             Your top 12 includes at least one team from each Power Four conference (ACC, Big Ten, Big 12 and SEC) and at
-            least one G6 team.
+            least one G6 team. Notre Dame is independent, so it doesn&apos;t count toward any Power Four conference.
           </li>
           <li>You have chosen a champion who is in your top 12.</li>
           <li>You have used no more than 3 moves compared with your initial picks.</li>
         </ol>
         <p>If an update is not valid, your previous picks stay in place.</p>
-      </section>
 
-      <section>
-        <h2>After the Adjustment</h2>
-        <p>After the adjustment window closes, everyone&apos;s picks are shared so you can strategize.</p>
-      </section>
-
-      <section>
-        <h2>Examples</h2>
+        <h3>Examples</h3>
         <p>Each example is counted against your initial picks.</p>
         <ul>
           <li>Replace one team with a new team in the same slot: 1 move.</li>
@@ -121,6 +114,11 @@ export default function RulesPage() {
           </li>
           <li>Reorder only your first 3 out: 0 moves.</li>
         </ul>
+      </section>
+
+      <section>
+        <h2>After the Adjustment</h2>
+        <p>After the adjustment window closes, everyone&apos;s picks are shared so you can strategize.</p>
       </section>
     </main>
   );

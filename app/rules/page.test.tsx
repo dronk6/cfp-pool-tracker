@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import RulesPage from "./page";
 
@@ -53,10 +53,13 @@ describe("RulesPage", () => {
     render(<RulesPage />);
 
     const validity = screen.getByRole("heading", { level: 3, name: "An update is valid only if" });
-    const list = validity.nextElementSibling as HTMLElement;
+    const list = within(validity.parentElement as HTMLElement)
+      .getAllByRole("listitem")
+      .find((item) => item.textContent?.includes("Power Four")) as HTMLElement;
 
     expect(list).toHaveTextContent(/ACC, Big Ten, Big 12 and SEC/);
     expect(list).toHaveTextContent(/at least one G6 team/);
+    expect(list).toHaveTextContent("Notre Dame is independent, so it doesn't count toward any Power Four conference.");
   });
 
   it("renders the After the Adjustment section", () => {
@@ -65,10 +68,23 @@ describe("RulesPage", () => {
     expect(screen.getByRole("heading", { level: 2, name: "After the Adjustment" })).toBeInTheDocument();
   });
 
-  it("renders move-counting examples", () => {
-    const { container } = render(<RulesPage />);
+  it("states the move count for every example", () => {
+    render(<RulesPage />);
 
-    expect(screen.getByRole("heading", { level: 2, name: "Examples" })).toBeInTheDocument();
-    expect(container).toHaveTextContent("4 moves, which is not valid");
+    const heading = screen.getByRole("heading", { level: 3, name: "Examples" });
+    const items = within(heading.parentElement as HTMLElement)
+      .getAllByRole("listitem")
+      .map((item) => item.textContent ?? "");
+    const examples = items.filter((text) => /^(Replace|Reorder|Drop) /.test(text));
+
+    expect(examples).toHaveLength(8);
+    expect(examples[0]).toMatch(/same slot: 1 move\./);
+    expect(examples[1]).toMatch(/1 move in total/);
+    expect(examples[2]).toMatch(/swap two other teams: 2 moves/);
+    expect(examples[3]).toMatch(/different slot.*2 moves/);
+    expect(examples[4]).toMatch(/own slot: 3 moves/);
+    expect(examples[5]).toMatch(/4 moves, which is not valid/);
+    expect(examples[6]).toMatch(/1 move, since/);
+    expect(examples[7]).toMatch(/0 moves/);
   });
 });

@@ -18,7 +18,8 @@
 .container p + p,
 .container p + ul,
 .container p + ol,
-.container ul + p {
+.container ul + p,
+.container ol + p {
   margin-top: 0.75rem;
 }
 
