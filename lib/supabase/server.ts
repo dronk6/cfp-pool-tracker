@@ -8,8 +8,11 @@ import { getAuthCookieOptions, getSupabaseEnv } from "./config";
  * request; never share it between requests.
  */
 export async function createSupabaseServerClient() {
-  const { url, publishableKey } = getSupabaseEnv();
+  // Read cookies first: it makes every caller request-time, so a build with no
+  // env vars fails here (at runtime) instead of baking a signed-out page or a
+  // static response into the output.
   const cookieStore = await cookies();
+  const { url, publishableKey } = getSupabaseEnv();
 
   return createServerClient(url, publishableKey, {
     cookieOptions: getAuthCookieOptions(),

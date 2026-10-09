@@ -3,15 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import AccountMenu from "./AccountMenu";
 import styles from "./NavBar.module.css";
 import { NAV_LINKS } from "./navLinks";
+import type { NavUser } from "./types";
 
 export function isActivePath(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export default function NavBar() {
+type NavBarProps = {
+  /**
+   * undefined: not known yet (the session is still loading), so the actions
+   * slot stays empty rather than flashing "Log In" at a signed-in user.
+   * null: signed out.
+   */
+  user?: NavUser | null;
+};
+
+export default function NavBar({ user }: NavBarProps) {
   const pathname = usePathname();
   const panelId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -88,8 +99,18 @@ export default function NavBar() {
 
         <ul className={styles.inlineLinks}>{renderLinks()}</ul>
 
-        {/* Reserved for Log In / avatar / Log Out (Authentication milestone). */}
-        <div className={styles.actions} />
+        <div className={styles.actions}>
+          {user === null && (
+            <Link
+              href="/login"
+              className={styles.link}
+              aria-current={isActivePath("/login", pathname) ? "page" : undefined}
+            >
+              Log In
+            </Link>
+          )}
+          {user && <AccountMenu name={user.name} />}
+        </div>
 
         <div
           data-testid="nav-backdrop"
