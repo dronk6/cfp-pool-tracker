@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthCookieOptions, getSupabaseEnv } from "./config";
 
@@ -8,11 +9,12 @@ import { getAuthCookieOptions, getSupabaseEnv } from "./config";
  * onto the request (so Server Components in this same request see the new
  * session) and onto the response (so the browser keeps it).
  *
- * This does not gate or redirect. It fails open: if Supabase is unreachable or
- * misconfigured the request continues and pages treat the visitor as signed
- * out, rather than the whole site returning errors.
+ * This does not gate or redirect; the caller decides what to do with `user`.
+ * It fails open: if Supabase is unreachable or misconfigured the request
+ * continues with `user: null`, so "signed out" and "could not tell" look the
+ * same here. Callers that gate a page must treat null as no access.
  */
-export async function updateSession(request: NextRequest): Promise<NextResponse> {
+export async function updateSession(request: NextRequest): Promise<{ response: NextResponse; user: User | null }> {
   let response = NextResponse.next({ request });
 
   try {
@@ -30,10 +32,10 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
         },
       },
     });
-    await supabase.auth.getUser();
-    return response;
+    const { data, error } = await supabase.auth.getUser();
+    return { response, user: error ? null : data.user };
   } catch (error) {
     console.error("Session refresh failed; continuing without it:", error);
-    return NextResponse.next({ request });
+    return { response: NextResponse.next({ request }), user: null };
   }
 }

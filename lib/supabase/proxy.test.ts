@@ -33,7 +33,7 @@ describe("updateSession", () => {
     mockClient(getUser, (cookies) => {
       seen = cookies.getAll();
     });
-    const response = await updateSession(
+    const { response } = await updateSession(
       new NextRequest("http://localhost/rules", { headers: { cookie: "sb-x-auth-token=old" } }),
     );
     expect(getUser).toHaveBeenCalledOnce();
@@ -54,7 +54,7 @@ describe("updateSession", () => {
       adapter = cookies;
     });
 
-    const response = await updateSession(request);
+    const { response } = await updateSession(request);
 
     expect(request.cookies.get("sb-x-auth-token")?.value).toBe("new");
     const setCookie = response.headers.get("set-cookie") ?? "";
@@ -63,9 +63,23 @@ describe("updateSession", () => {
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
 
+  it("returns the user when the session is valid", async () => {
+    const user = { id: "u1", email: "a@b.co" };
+    mockClient(vi.fn().mockResolvedValue({ data: { user }, error: null }));
+    const result = await updateSession(new NextRequest("http://localhost/my-picks"));
+    expect(result.user).toEqual(user);
+  });
+
+  it("returns no user when getUser reports an error", async () => {
+    mockClient(vi.fn().mockResolvedValue({ data: { user: null }, error: new Error("bad jwt") }));
+    const result = await updateSession(new NextRequest("http://localhost/my-picks"));
+    expect(result.user).toBeNull();
+  });
+
   it("fails open when getUser throws", async () => {
     mockClient(vi.fn().mockRejectedValue(new Error("network down")));
-    const response = await updateSession(new NextRequest("http://localhost/"));
+    const { response, user } = await updateSession(new NextRequest("http://localhost/"));
+    expect(user).toBeNull();
     expect(response.status).toBe(200);
     expect(response.headers.get("x-middleware-next")).toBe("1");
     expect(console.error).toHaveBeenCalled();
@@ -73,7 +87,8 @@ describe("updateSession", () => {
 
   it("fails open when the environment is not configured", async () => {
     vi.stubEnv("SUPABASE_URL", "");
-    const response = await updateSession(new NextRequest("http://localhost/"));
+    const { response, user } = await updateSession(new NextRequest("http://localhost/"));
+    expect(user).toBeNull();
     expect(response.headers.get("x-middleware-next")).toBe("1");
     expect(createServerClient).not.toHaveBeenCalled();
   });

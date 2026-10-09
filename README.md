@@ -63,13 +63,14 @@ They write to the local database, and refuse to run unless `SUPABASE_URL` points
 |-------|------|
 | `/` | Home |
 | `/rules` | Rules |
+| `/login` | Log In (email, then the emailed code) |
 | `/my-picks` | My Picks |
 
 Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. The right end of the bar shows a Log In link, or an account menu when signed in (see [Signing out and the nav bar](#signing-out-and-the-nav-bar)). To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
 
 ## Authentication
 
-Participants sign in without a password: they ask for a code by email and type it in. There is no sign-up; participants are created by an admin script (see [Planning/otp-authentication-plan.md](./Planning/otp-authentication-plan.md)). The sign-in page and nav changes are not built yet, so for now the routes can only be called directly.
+Participants sign in without a password: they ask for a code by email and type it in. There is no sign-up; participants are created by an admin script (see [Planning/otp-authentication-plan.md](./Planning/otp-authentication-plan.md)). The sign-in page is `/login` (see [Signing in](#signing-in-login)); the nav bar's "Log In" link goes there (see [Signing out and the nav bar](#signing-out-and-the-nav-bar)).
 
 | Route | Body | Result |
 |-------|------|--------|
@@ -80,7 +81,7 @@ Code layout:
 
 - [lib/supabase/server.ts](./lib/supabase/server.ts): `createSupabaseServerClient()`, the only Supabase client the app uses (there is no browser client). It reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` when called and throws a clear error if they are missing. Session cookies are HttpOnly, SameSite=Lax, and Secure in production ([lib/supabase/config.ts](./lib/supabase/config.ts)).
 - [lib/auth/current-user.ts](./lib/auth/current-user.ts): `getCurrentUser()` returns the signed-in user or `null` (it re-validates with Supabase via `getUser()`). Use it in Server Components and Route Handlers to decide who is asking; never trust a user id sent by the client.
-- [proxy.ts](./proxy.ts) (Next.js 16's name for middleware) refreshes the session on every request except static assets. It does not protect any page or redirect; it fails open if Supabase is unreachable.
+- [proxy.ts](./proxy.ts) (Next.js 16's name for middleware) refreshes the session on every request except static assets, then applies [lib/auth/route-gate.ts](./lib/auth/route-gate.ts): logged-out visitors to `/my-picks` go to `/login`, and logged-in visitors to `/login` go to `/my-picks`. Public pages and `/login` fail open if Supabase is unreachable; `/my-picks` fails closed. `/api` is never gated, so each route checks the session itself.
 
 **Trying it locally:** start the local stack, run `npm run dev`, then request a code:
 
@@ -89,6 +90,17 @@ curl -X POST localhost:3000/api/auth/request-otp -H "Content-Type: application/j
 ```
 
 The email goes to the stack's Mailpit inbox (http://127.0.0.1:54324), not a real mailbox, and is only sent if that email belongs to an existing user. Create one in local Studio (Authentication, Add user, tick Auto Confirm User). The local auth settings in [supabase/config.toml](./supabase/config.toml) (no sign-up, 30 second resend limit, 8-character codes, code-only email from [supabase/templates/magic_link.html](./supabase/templates/magic_link.html)) mirror production. A running stack only picks up changes to that file after `npx supabase stop` and `npx supabase start`.
+
+### Signing in (/login)
+
+`/login` ([app/login/page.tsx](./app/login/page.tsx)) hosts the form in [app/components/LoginForm](./app/components/LoginForm). It has two steps, held in memory only (nothing in the URL, storage or logs), so a refresh starts over:
+
+1. Email: submitting always shows "If that email is registered, a code is on its way." whether or not the email is a participant. Only a malformed email (a 400) or a network failure is reported.
+2. Code: type the emailed code (non-digits are dropped; there is no length limit because the code length is a Supabase setting). A correct code does a full page load of `/my-picks`, so server-rendered parts of the page see the new session. A wrong code shows one message for every failure. "Send a New Code" and "Cancel" are there from the start; "Send a New Code" is disabled for 30 seconds after each request (matching Supabase's per-email interval) with a countdown, and "Cancel" returns to the email step with the email kept.
+
+The flow is a pure reducer (`loginFlow.ts`); `authApi.ts` wraps the two routes above and `navigate.ts` wraps the redirect so tests can replace it. The submit button stays disabled until the page has hydrated so an early native submit can't put the email in the URL. The My Picks page itself does not check the session yet; the proxy is the only gate, so the pages that load picks must check it server-side (`getCurrentUser()`).
+
+To try it: follow "Trying it locally" above, open http://localhost:3000/login, and read the code from Mailpit.
 
 ### Signing out and the nav bar
 

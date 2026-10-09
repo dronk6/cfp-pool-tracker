@@ -67,7 +67,7 @@ The server client is initialized with `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_K
 1. Call `supabase.auth.getUser()` using the server client. This both validates the session *and* triggers an automatic token refresh if the access token is near expiry, rewriting the refreshed cookies onto the response — this replaces the original plan's manual "match cookie maxAge to JWT exp" bookkeeping, since Supabase/`@supabase/ssr` handles refreshing for you.
 2. If there's no valid user and the request is for a page that requires login (e.g., "My Picks"), redirect to `/login`. If there is a valid user, let the request through.
 
-The session refresh (1) is built: `proxy.ts` calls `updateSession` in `lib/supabase/proxy.ts`, and fails open if Supabase errors. The redirect (2) is not: it is added with the login page in #19, since `/login` does not exist yet.
+Both are built. `proxy.ts` calls `updateSession` in `lib/supabase/proxy.ts` (session refresh, returning the user) and then `gateRequest` in `lib/auth/route-gate.ts`, which redirects a logged-out visitor on `/my-picks` to `/login` and a logged-in visitor on `/login` to `/my-picks`. If Supabase errors, public pages and `/login` fail open, but `/my-picks` fails closed (redirects to `/login`).
 
 This is the same role `middleware.ts` played in the original plan — gating permissioned pages before they render — just backed by `getUser()` instead of manual JWT verification.
 
