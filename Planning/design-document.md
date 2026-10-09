@@ -72,10 +72,10 @@ As a user, I want to log into the site to view and manage my picks.
     - Submit the email and always show the same generic message (e.g., "If that email is registered, a code is on its way") regardless of whether it's actually a registered participant — per [otp-authentication-plan.md](./otp-authentication-plan.md), the app must not reveal whether an email is registered.
 - Add a form requesting an OTP from the user.
   - Actions:
-    - If the password is correct, send the user to the "My Picks" page.
-    - Show "Send a New Code" and "Cancel" buttons as soon as this form appears, so a user whose code never arrives (or who mistyped their email) isn't stuck. If the password is incorrect, also say so.
+    - If the code is correct, send the user to the "My Picks" page.
+    - Show "Send a New Code" and "Cancel" buttons as soon as this form appears, so a user whose code never arrives (or who mistyped their email) isn't stuck. If the code is incorrect, also say so.
   - Notes:
-    - Only show this once the password has been sent to the user's email address.
+    - Only show this once the code has been sent to the user's email address.
     - Refreshing the page should send the user back to the start of login process.
     - "Send a New Code" is disabled for 30 seconds after a code is requested, matching Supabase's per-email minimum interval. The server answers a too-soon request with the same generic success as any other, so the limit can't reveal whether an email is registered.
 
