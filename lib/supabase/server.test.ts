@@ -2,13 +2,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const createServerClient = vi.hoisted(() => vi.fn(() => ({ kind: "client" })));
+const cookiesCalled = vi.hoisted(() => vi.fn());
 const cookieStore = vi.hoisted(() => ({
   getAll: vi.fn(() => [{ name: "a", value: "1" }]),
   set: vi.fn(),
 }));
 
 vi.mock("@supabase/ssr", () => ({ createServerClient }));
-vi.mock("next/headers", () => ({ cookies: async () => cookieStore }));
+vi.mock("next/headers", () => ({
+  cookies: async () => {
+    cookiesCalled();
+    return cookieStore;
+  },
+}));
 
 import { createSupabaseServerClient } from "./server";
 
@@ -30,6 +36,7 @@ describe("createSupabaseServerClient", () => {
     vi.stubEnv("SUPABASE_URL", "http://127.0.0.1:54321");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
     createServerClient.mockClear();
+    cookiesCalled.mockClear();
     cookieStore.set.mockReset();
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -46,6 +53,12 @@ describe("createSupabaseServerClient", () => {
   it.each(["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY"])("throws a clear error when %s is missing", async (name) => {
     vi.stubEnv(name, "");
     await expect(createSupabaseServerClient()).rejects.toThrow(/SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY/);
+  });
+
+  it("reads the request cookies before the env, so a missing env fails at request time", async () => {
+    vi.stubEnv("SUPABASE_URL", "");
+    await expect(createSupabaseServerClient()).rejects.toThrow(/SUPABASE_URL/);
+    expect(cookiesCalled).toHaveBeenCalledOnce();
   });
 
   it("makes cookies HttpOnly, SameSite=Lax, path /, and Secure only in production", async () => {

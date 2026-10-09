@@ -1,0 +1,91 @@
+.root {
+  position: relative;
+}
+
+.avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 1px solid var(--nav-border);
+  border-radius: 50%;
+  background: var(--nav-hover);
+  color: inherit;
+  cursor: pointer;
+}
+
+.avatar:hover {
+  border-color: currentColor;
+}
+
+.popup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 30;
+  width: min(16rem, calc(100vw - 2rem));
+  padding: 1rem;
+  border: 1px solid var(--nav-border);
+  border-radius: 0.5rem;
+  background: var(--nav-background);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+}
+
+.popup[hidden] {
+  display: none;
+}
+
+.question {
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.logOut,
+.cancel {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.logOut {
+  border: 1px solid #c62828;
+  background: #c62828;
+  color: #ffffff;
+}
+
+.cancel {
+  border: 1px solid var(--nav-border);
+  background: transparent;
+  color: inherit;
+}
+
+.cancel:hover {
+  background: var(--nav-hover);
+}
+
+.logOut:disabled,
+.cancel:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  margin-top: 0.75rem;
+  color: #c62828;
+  font-size: 0.875rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .error {
+    color: #ff8a80;
+  }
+}
