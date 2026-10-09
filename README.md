@@ -55,7 +55,7 @@ RUN_DB_TESTS=1 npm test                        # bash / Git Bash
 $env:RUN_DB_TESTS = "1"; npm test              # PowerShell (stays set for that terminal; Remove-Item Env:RUN_DB_TESTS to unset)
 ```
 
-They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern. `app/api/auth/otp.db.test.ts` runs the sign-in routes against the stack (it also needs `SUPABASE_PUBLISHABLE_KEY` in `.env.local`); it creates throwaway users and deletes them afterwards, and fakes only `next/headers`. Run just it with `RUN_DB_TESTS=1 npx vitest run app/api/auth/otp.db`.
+They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern. `app/api/auth/otp.db.test.ts` runs the sign-in routes against the stack (it also needs `SUPABASE_PUBLISHABLE_KEY` in `.env.local`, as does `supabase/all-submissions.db.test.ts`, which also expects the local `teams` table to be seeded with `npm run seed:teams`); it creates throwaway users and deletes them afterwards, and fakes only `next/headers`. Run just it with `RUN_DB_TESTS=1 npx vitest run app/api/auth/otp.db`.
 
 ### Routes
 
@@ -234,3 +234,17 @@ Do this at least a few days before the edit window opens, so any problem shows u
 1. Reseed `teams` in production from the season's `d1_fbs_college_football_teams.csv` with `npm run seed:teams` (see [Seeding teams](#seeding-teams)).
 2. Add the season's row to `seasons` and load it in production; see [Seasons (edit window)](#seasons-edit-window).
 3. For each participant, create their auth user and `profiles` row using the seeding script (see [otp-authentication-plan.md](./Planning/otp-authentication-plan.md), Step 2), **then** insert their initial `submissions` row. Do both for everyone before announcing the site, so nobody logs in to an empty "My Picks" page.
+
+### During the season: view everyone's picks
+
+There is no admin page. Instead, the database has a view called `all_submissions` with one row per participant per year: their name and email, their initial picks (`initial_1` to `initial_15`), their current picks (`current_1` to `current_15`), the champion, and when they submitted and last updated. Picks are team names in order: slots 1 to 12 are the playoff and 13 to 15 are First Three Out. Rows are sorted by year (newest first), then name. If a pick refers to a team that is missing from `teams`, it shows as `Unknown team <id>`.
+
+To look at it:
+
+1. Sign in at [supabase.com/dashboard](https://supabase.com/dashboard) and open the CFP Pool Tracker project.
+2. Open **Table Editor**, and pick `all_submissions` from the table list (views are listed with the tables). To see only one year, add a filter on `year`.
+3. To get a spreadsheet, use the table editor's **Export** option to download as CSV; it exports the rows being viewed, so apply any filter first. (The exact dashboard steps are confirmed when the view is set up in production, Task M11.)
+
+The view is read-only. To fix a participant's picks, edit the `submissions` table.
+
+The view contains participants' emails, so the API cannot read it: it is only visible in the dashboard (and to scripts using the secret key). The migration that creates it explains why; keep its `security_invoker` option and its `revoke` if you ever recreate it.
