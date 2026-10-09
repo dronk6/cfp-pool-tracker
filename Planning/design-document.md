@@ -128,6 +128,7 @@ An update is valid only if all of these hold:
 3. **G6 requirement:** the top 12 includes at least one team with `is_power_conf = false` (Notre Dame counts as power-equivalent; UConn does not).
 4. **Champion:** a champion is chosen, and that team is in the **top 12** of the updated picks.
 5. **Move limit:** the update uses **at most 3 moves**, counted as below.
+6. **Power Four requirement:** the top 12 includes at least one team from each Power Four conference: ACC, Big Ten, Big 12 and SEC (by the `teams.conference` value). Notre Dame is an FBS Independent, so it doesn't count toward any of them. Added 10/09 (PR 25).
 
 #### How moves are counted
 
@@ -526,6 +527,19 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Blockers/Open Questions:
     - Depends on PR 8.
 
+- PR 25: Require a team from each Power Four conference in the top 12
+  - User Story: As a user, I would like to be told if my top 12 is missing a Power Four conference, so my update follows the rules.
+  - Requirements:
+    - `validatePicks` also enforces rule 6 of [Validation Rules](#validation-rules): the new top 12 includes at least one team from each of ACC, Big Ten, Big 12 and SEC.
+    - A missing conference is reported as its own violation, naming the missing conference(s).
+    - Each team in `teams` gains `conference`, matching the `teams` column and `GET /api/teams`.
+    - Unit tests cover the rule passing, one conference missing, several missing, and Notre Dame not counting toward any conference.
+  - Notes:
+    - Added 10/09: `Planning/rules.md` listed this rule but the design and PR 9 had missed it.
+    - It only applies to updates. Initial picks are collected by Tyler and aren't validated by the site.
+  - Blockers/Open Questions:
+    - Depends on PR 9. Must merge before PR 18, which runs the validation on save.
+
 #### Milestone 5: Authentication
 
 - Task M8: Configure Supabase Auth in the dashboard #manual
@@ -653,7 +667,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Notes:
     - The change-summary popup is a separate follow-up (nice-to-have).
   - Blockers/Open Questions:
-    - Depends on PRs 9, 15 and 17.
+    - Depends on PRs 9, 15, 17 and 25.
 
 - PR 19: Enable the Edit button only inside the edit window
   - User Story: As a user, I would like to know when I can edit so I'm not confused by a button that fails.
