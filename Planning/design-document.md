@@ -518,7 +518,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
       - The initial First Three Out is not an input, because no rule compares against it. The "No overlap" check compares the new top 12 with the new First Three Out.
       - A blank slot in the new picks is passed as `null` and reported as a shape violation.
       - `championId` is `null` when no champion is chosen.
-      - Each team in `teams` is `{ id, name, is_power_conf }`, matching the `teams` columns.
+      - Each team in `teams` is `{ id, name, conference, is_power_conf }`, matching the `teams` columns. (`conference` is used by the Power Four rule, PR 25.)
     - Each violation is `{ rule, message, teamIds? }`: a rule code, its own human-readable message, and the ids of the teams involved where there are any. "No overlap" has its own message, separate from "no duplicates."
     - Unit tests cover each rule passing and failing.
   - Notes:
@@ -531,8 +531,10 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - User Story: As a user, I would like to be told if my top 12 is missing a Power Four conference, so my update follows the rules.
   - Requirements:
     - `validatePicks` also enforces rule 6 of [Validation Rules](#validation-rules): the new top 12 includes at least one team from each of ACC, Big Ten, Big 12 and SEC.
-    - A missing conference is reported as its own violation, naming the missing conference(s).
+    - A missing conference is reported as one violation whose message names every missing conference, in the order ACC, Big Ten, Big 12, SEC.
     - Each team in `teams` gains `conference`, matching the `teams` column and `GET /api/teams`.
+    - The Power Four list lives in one place, `lib/conferences.ts`, shared by the validation and the teams seed (which decides `is_power_conf`).
+    - Like the G6 rule, the check is skipped while the top 12 has a blank or unrecognized slot, so an unfinished list isn't also told a conference is missing.
     - Unit tests cover the rule passing, one conference missing, several missing, and Notre Dame not counting toward any conference.
   - Notes:
     - Added 10/09: `Planning/rules.md` listed this rule but the design and PR 9 had missed it.

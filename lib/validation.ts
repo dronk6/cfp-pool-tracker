@@ -1,3 +1,4 @@
+import { POWER_CONFERENCES } from "./conferences";
 import { countMoves } from "./moves";
 
 export const MAX_MOVES = 3;
@@ -5,10 +6,11 @@ export const MAX_MOVES = 3;
 export interface Team {
   id: number;
   name: string;
+  conference: string;
   is_power_conf: boolean;
 }
 
-export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap" | "g6-required" | "champion-required" | "champion-not-in-top-12" | "move-limit";
+export type ViolationRule = "shape" | "unknown-team" | "duplicate" | "overlap" | "g6-required" | "power-four-required" | "champion-required" | "champion-not-in-top-12" | "move-limit";
 
 export interface Violation {
   rule: ViolationRule;
@@ -46,6 +48,7 @@ export function validatePicks(input: PicksInput): Violation[] {
     ...checkDuplicates(newTiebreakers, "First Three Out", nameOf),
     ...checkOverlap(newTop12, newTiebreakers, nameOf),
     ...checkGroupOfSix(newTop12, teamsById),
+    ...checkPowerFour(newTop12, teamsById),
     ...checkChampion(newTop12, championId, nameOf),
     ...checkMoveLimit(input.initialTop12, newTop12, teamsById),
   ];
@@ -151,6 +154,29 @@ function checkGroupOfSix(
       rule: "g6-required",
       message:
         "The top 12 must include at least one team from a non-power conference (Notre Dame counts as a power-conference team; UConn does not).",
+    },
+  ];
+}
+
+// Skipped under the same conditions as the G6 rule: a blank or unknown slot
+// might be where the missing conference's team was going to go.
+function checkPowerFour(
+  top12: readonly (number | null)[],
+  teamsById: ReadonlyMap<number, Team>,
+): Violation[] {
+  if (top12.length !== TOP_12_SIZE) return [];
+  const conferences = new Set<string>();
+  for (const id of top12) {
+    const team = id === null ? undefined : teamsById.get(id);
+    if (!team) return [];
+    conferences.add(team.conference);
+  }
+  const missing = POWER_CONFERENCES.filter((conference) => !conferences.has(conference));
+  if (missing.length === 0) return [];
+  return [
+    {
+      rule: "power-four-required",
+      message: `Your top 12 needs at least one team from each Power Four conference. Missing: ${missing.join(", ")}.`,
     },
   ];
 }

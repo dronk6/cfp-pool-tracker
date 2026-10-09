@@ -1,8 +1,11 @@
 // Pure CSV parsing and row mapping for the `teams` seed. No I/O here, so it
 // can be unit-tested without a database.
 
+import { POWER_CONFERENCES } from "../../lib/conferences";
+
 /*
- * Power-conference rules: the single place that decides `is_power_conf`.
+ * Power-conference rules: the single place that decides `is_power_conf`
+ * (POWER_CONFERENCES itself lives in lib/conferences.ts, shared with validation).
  *
  * The power conferences are ACC, Big Ten, Big 12 and SEC. Realignment broke
  * up the old Pac-12; the league that plays as the Pac-12 in 2026 was rebuilt
@@ -19,7 +22,6 @@
  * classified. Each override must match a team in the CSV, so a renamed team
  * can't silently lose its override.
  */
-export const POWER_CONFERENCES: readonly string[] = ["ACC", "Big Ten", "Big 12", "SEC"];
 
 export const NON_POWER_CONFERENCES: readonly string[] = [
   "American Athletic",
