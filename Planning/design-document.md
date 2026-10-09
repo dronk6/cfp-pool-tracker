@@ -750,6 +750,9 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Using real email addresses on a phone, complete the full flow: log in, view picks, edit, hit validation errors, save valid picks, log out.
     - Verify the Edit button state and server rejection just before and after the window (e.g., temporarily adjust the `seasons` row in a test environment).
     - Confirm OTP emails arrive promptly and not in spam for Gmail, Outlook and iCloud at minimum.
+    - Time `POST /api/auth/request-otp` for a registered and an unregistered email in production; they should take about the same time, since the email is sent after the response.
+    - Do the same for `POST /api/auth/verify-otp` with a wrong code; a timing difference there was suspected during PR 10 but not verified.
+    - On a phone, visually check the login form and the nav bar's avatar dropdown, which so far were only checked by automated tests and a headless browser.
   - Blockers/Open Questions:
     - Depends on every other milestone being complete (including M10 and M11).
 
