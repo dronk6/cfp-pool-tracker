@@ -54,6 +54,36 @@ describe("NavBar", () => {
     expect(screen.getByText("My Picks", { selector: "span" })).toBeInTheDocument();
   });
 
+  describe("account actions", () => {
+    it("shows nothing in the actions slot while the user is not known yet", () => {
+      render(<NavBar />);
+
+      expect(screen.queryByRole("link", { name: "Log In" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Account menu/ })).not.toBeInTheDocument();
+    });
+
+    it("shows a Log In link to /login when signed out", () => {
+      render(<NavBar user={null} />);
+
+      expect(screen.getByRole("link", { name: "Log In" })).toHaveAttribute("href", "/login");
+      expect(screen.queryByRole("button", { name: /Account menu/ })).not.toBeInTheDocument();
+    });
+
+    it("marks Log In as current on the login page", () => {
+      usePathname.mockReturnValue("/login");
+      render(<NavBar user={null} />);
+
+      expect(screen.getByRole("link", { name: "Log In" })).toHaveAttribute("aria-current", "page");
+    });
+
+    it("shows the account menu instead of Log In when signed in", () => {
+      render(<NavBar user={{ name: "Ada" }} />);
+
+      expect(screen.getByRole("button", { name: "Account menu for Ada" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Log In" })).not.toBeInTheDocument();
+    });
+  });
+
   describe("mobile menu", () => {
     it("starts closed with the panel inert", () => {
       render(<NavBar />);

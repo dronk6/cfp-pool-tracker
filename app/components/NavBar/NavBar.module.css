@@ -72,9 +72,13 @@
   text-underline-offset: 0.25rem;
 }
 
+/* A fixed minimum size so the bar doesn't shift when the user loads in. */
 .actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   margin-left: auto;
 }
 
