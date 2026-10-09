@@ -2,6 +2,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LoginForm from "./LoginForm";
+import { navigate } from "./navigate";
+
+vi.mock("./navigate", () => ({ navigate: vi.fn() }));
 
 const GENERIC = "If that email is registered, a code is on its way.";
 
@@ -17,6 +20,7 @@ async function submitEmail(user: ReturnType<typeof userEvent.setup>, email = "a@
 }
 
 beforeEach(() => {
+  vi.mocked(navigate).mockReset();
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -66,6 +70,7 @@ describe("LoginForm email step", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Enter a valid email address.");
     expect(screen.getByLabelText("Email")).toHaveValue("nope");
+    expect(screen.getByLabelText("Email")).toHaveFocus();
     expect(screen.queryByText(GENERIC)).not.toBeInTheDocument();
   });
 
