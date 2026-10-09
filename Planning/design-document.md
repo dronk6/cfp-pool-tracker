@@ -287,6 +287,8 @@ seasons (
 
 The UI's Edit button reads the same window (via the server) so the button and the server check cannot disagree.
 
+**`all_submissions`** (a view, not a table) — a wide, readable copy of `submissions` for Tyler, with one row per participant per year and team names instead of ids: `year, name, email, initial_1..initial_15, current_1..current_15, champion, submitted_at, updated_at`. It is created `with (security_invoker = true)` and every API role is revoked from it, so only the dashboard and the secret key can read it. See PR 24 and [Decisions](#decisions-from-design-review).
+
 **Migrations.** The schema is managed with the Supabase CLI (an npm devDependency): migrations live in `supabase/migrations/`, are developed against the CLI's local stack (`supabase start`, which needs Docker Desktop), and are applied to production with `supabase link` + `supabase db push` (Task M5). A migration is verified by `supabase db reset` applying cleanly on the local stack; there is no separate CI job or SQL test suite for the schema (see [Decisions](#decisions-from-design-review)).
 
 **Access control (RLS).** Row Level Security is enabled on all four tables as defense in depth behind the server-side scoping in [Backend / APIs](#backend--apis). The server queries Supabase with the publishable key plus the signed-in user's session, so these policies apply to every app request:
@@ -728,11 +730,13 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 24: Add a readable `all_submissions` view for Tyler
   - User Story: As Tyler, I would like to see every participant's initial and current picks with team names so I can verify updates without an admin page.
   - Requirements:
-    - A migration creates a Postgres view `all_submissions` joining `submissions`, `profiles` and `teams`, showing per participant: name, email, initial and current picks as ordered team names (1-15), the champion's name, `submitted_at` and `updated_at`.
+    - A migration creates a Postgres view `all_submissions` joining `submissions`, `profiles` and `teams`, showing per participant: year, name, email, initial and current picks as ordered team names (1-15), the champion's name, `submitted_at` and `updated_at`.
     - The README explains how Tyler uses the view.
   - Notes:
     - Postgres arrays lose ordering guarantees in a plain join, so unnest `WITH ORDINALITY` to keep pick order.
-    - The view contains participants' emails, so access should be limited to Tyler and the maintainer. A view runs with its owner's rights and bypasses RLS, and Supabase exposes `public` through its API, so revoke all access to the view from `anon` and `authenticated` (Tyler reads it in the dashboard).
+    - The layout is wide: columns `year, name, email, initial_1..initial_15, current_1..current_15, champion, submitted_at, updated_at` (slots 13-15 are First Three Out), ordered by `year desc, name`. A team id missing from `teams` shows as `Unknown team <id>`; the champion is a left join, so it is null until the first revision.
+    - The view contains participants' emails, so access is limited to Tyler and the maintainer. It lives in `public`, is created `with (security_invoker = true)` (so a role that is ever re-granted access sees only what RLS allows it, rather than everyone's rows as a default owner-rights view would), and the same migration revokes all access from `public`, `anon` and `authenticated`, because Supabase's default privileges would otherwise expose it through the API. `service_role` and `postgres` keep access. Tyler reads it in the dashboard.
+    - Tested by `supabase/all-submissions.db.test.ts` (opt-in DB tests): row contents and ordering, and a permission error (42501) for anonymous and signed-in requests.
   - Blockers/Open Questions:
     - Depends on PRs 5 and 6.
 
@@ -741,9 +745,12 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - The PR 24 migration is applied to the production Supabase project.
     - The view is saved in the Supabase dashboard so Tyler can open it in the table editor without writing SQL.
     - Tyler has a Supabase dashboard login with the least access that lets him read the view.
+    - Confirm, logged in as Tyler, that he actually sees rows in `all_submissions`: the view runs with the caller's rights, so his dashboard role must bypass RLS to see anyone's picks.
   - Blockers/Open Questions:
     - Depends on PR 24 and M5.
     - Tyler needs to be added to the Supabase project; confirm he's comfortable with that.
+    - UNVERIFIED: the dashboard's "Read-only" member role is believed to connect as a database role that bypasses RLS (locally, `supabase_read_only_user` has `rolbypassrls = true`). Confirm in production that Tyler sees rows.
+    - UNVERIFIED: a Read-only member can probably also read every other table, including `auth.users`, so Tyler's access is wider than just the view. Confirm, and decide whether that is acceptable.
 
 - Task M12: Production dry run #manual
   - Requirements:
@@ -781,6 +788,7 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **Login rate limits don't get their own message:** Supabase's 30-second minimum interval is per email and may apply only to registered addresses, so a distinct "please wait" response could reveal who is registered. The request-code route returns the same generic success for rate-limit errors as for everything else, and the login form disables "Send a New Code" for 30 seconds instead.
 - **Login flow details (PR 11):** "Send a New Code" and "Cancel" appear as soon as the code form does. Gated pages fail closed when the session can't be checked, there is no "return to" parameter, and a successful login does a full page load.
 - **Log out scope (PR 12):** "Log Out" signs the user out of the current device only, so logging out on a laptop doesn't end their phone session. `POST /api/logout` needs no CSRF token: it is POST-only and the session cookies are `SameSite=Lax`, so a cross-site request arrives signed out.
+- **`all_submissions` view (PR 24):** the view is in `public`, created `with (security_invoker = true)`, and the same migration revokes all access from `public`, `anon` and `authenticated`. A default view runs as its owner and bypasses RLS, so with `security_invoker` a role that is ever re-granted access sees only its own rows. The explicit revoke is needed because Supabase's default privileges grant new `public` objects to `anon` and `authenticated`. The layout is wide (one column per slot, 15 for initial and 15 for current) with a `year` column, so Tyler can filter and export it as CSV in the table editor. Consequence for M11: Tyler's dashboard role must bypass RLS to see rows.
 - **Code length:** production sends 8-digit codes (Supabase's default) and the local stack matches. The verify route doesn't assume a length.
 
 ## Open Questions
