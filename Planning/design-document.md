@@ -66,7 +66,7 @@ As a user, I want to log into the site to view and manage my picks.
 
 #### Changes Necessary
 
-- Create a component which blocks access to "My Picks" page.
+- Create a `/login` page that hosts the login component. Logged-out users who open "My Picks" are redirected to `/login`; logged-in users who open `/login` are redirected to "My Picks".
 - Add a form requesting a user's email address.
   - Actions:
     - Submit the email and always show the same generic message (e.g., "If that email is registered, a code is on its way") regardless of whether it's actually a registered participant — per [otp-authentication-plan.md](./otp-authentication-plan.md), the app must not reveal whether an email is registered.
@@ -77,6 +77,7 @@ As a user, I want to log into the site to view and manage my picks.
   - Notes:
     - Only show this once the password has been sent to the user's email address.
     - Refreshing the page should send the user back to the start of login process.
+    - "Send a New Code" is disabled for 30 seconds after a code is requested, matching Supabase's per-email minimum interval. The server answers a too-soon request with the same generic success as any other, so the limit can't reveal whether an email is registered.
 
 ### "My Picks" Page
 
@@ -533,7 +534,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Custom SMTP (Auth → SMTP Settings) uses the M2 Gmail account: host `smtp.gmail.com`, port 465 or 587, the full Gmail address as username and sender, and the app password (no spaces) as the password.
     - The "Magic Link" email template is edited to show `{{ .Token }}` so the email contains a code, not a link.
     - The auth email rate limit (Auth → Rate Limits) is checked and raised if it would throttle a login rush.
-    - Delivery is verified: create a confirmed test user in the dashboard with an email address that is **not** a member of the Supabase organization, request a code with `POST <project-url>/auth/v1/otp` (publishable key in the `apikey` header, `create_user: false`), and confirm the email arrives promptly with a 6-digit code and is not in spam. Delete the test user afterward.
+    - Delivery is verified: create a confirmed test user in the dashboard with an email address that is **not** a member of the Supabase organization, request a code with `POST <project-url>/auth/v1/otp` (publishable key in the `apikey` header, `create_user: false`), and confirm the email arrives promptly with a numeric code (8 digits, Supabase's default) and is not in spam. Delete the test user afterward.
   - Notes:
     - No code is needed to do this, so do it before PR 10; PR 10/11 can then be tested end-to-end. The final multi-provider deliverability check remains in Task M12.
     - If delivery fails, check Logs → Auth in the Supabase dashboard (an SMTP authentication error means the Gmail credentials are wrong).
@@ -548,7 +549,9 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Notes:
     - Follow [otp-authentication-plan.md](./otp-authentication-plan.md) and [session-management-plan.md](./session-management-plan.md).
     - Server-side client only, built from `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (see [Configuration](#configuration)); no browser client.
-    - Make the local stack's auth match production (Task M8) in `supabase/config.toml`: self-signup disabled, and the Magic Link email shows `{{ .Token }}`. Locally, the codes arrive in the stack's Mailpit inbox.
+    - Make the local stack's auth match production (Task M8) in `supabase/config.toml`: self-signup disabled, the Magic Link email shows `{{ .Token }}`, 8-digit codes and a 30-second minimum interval per email. Locally, the codes arrive in the stack's Mailpit inbox. `npx supabase config diff` lists any remaining differences from production (read-only).
+    - Next.js 16 renamed `middleware.ts` to `proxy.ts`. This PR's proxy only refreshes the session; PR 11 adds the redirect for logged-out users.
+    - Don't hard-code the code length when verifying.
   - Blockers/Open Questions:
     - Do M8 first: it verifies the Gmail SMTP sender delivers codes, so end-to-end testing of this PR works from the start.
 
@@ -558,21 +561,26 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Email form always shows the same generic message after submit, whether or not the email is registered.
     - OTP form appears only after a code has been requested; correct code goes to My Picks; incorrect code offers "Send a New Code" and "Cancel."
     - Refreshing the page returns the user to the start of the login flow.
-    - The My Picks page is blocked for logged-out users.
+    - The My Picks page is blocked for logged-out users: the proxy redirects them to `/login`, and a logged-in user opening `/login` goes to My Picks.
+    - "Send a New Code" is disabled for 30 seconds after a code is requested.
   - Notes:
     - See [Login Component](#login-component).
+    - The login form lives on its own `/login` page. Nav bar changes (the "Log In" link) belong to PR 12.
   - Blockers/Open Questions:
     - Depends on PR 10 and M8.
 
 - PR 12: Add Log Out and `GET /api/me`
   - User Story: As a user, I would like to log out when I'm done.
   - Requirements:
-    - A "Log Out" button with an "Are You Sure?" confirmation appears in the top right of the nav bar for logged-in users only.
+    - Logged-out users see a "Log In" link (to `/login`) in the top right of the nav bar.
+    - Logged-in users see an avatar button there instead. It opens a dropdown asking "Are you sure?" with "Log Out" and "Cancel"; "Log Out" calls `POST /api/logout`, which signs the user out with Supabase.
     - `GET /api/me` returns the name and email of the session user, and rejects requests without a valid session.
   - Notes:
     - The user ID always comes from the verified session, never the request.
+    - The root layout reads the session user on the server and passes it to the nav bar, so the nav updates after login and logout without a client fetch. Pages therefore render per request. `GET /api/me` still exists for client use.
+    - See the nav bar wireframe (`nav-bar-mock.png`).
   - Blockers/Open Questions:
-    - Depends on PRs 2 and 11.
+    - Depends on PRs 2 and 10. It can be built in parallel with PR 11; merge PR 11 first, then bring this branch up to date.
 
 #### Milestone 6: API
 
@@ -766,6 +774,10 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **Migration tooling:** the Supabase CLI, with its local Docker stack for development. Schema changes are rare, so a migration is verified by applying it cleanly to the local stack; we decided a CI job and a SQL test suite for the schema would be overkill. Behavior is covered by the API tests instead (e.g., PR 14's "user A cannot read user B").
 - **`profiles.id` references `auth.users(id)`** (on delete cascade), so a profile can't exist without its auth user. The seeding script already creates the auth user first.
 - **Row Level Security:** enabled on all four tables, with minimal policies (own profile and submission only; `teams` and `seasons` readable when signed in; nothing for anonymous requests). Without RLS, anyone holding the publishable key could read every table, including participants' emails. RLS with *no* policies was rejected because the deployed server uses the publishable key, so it would block every app query. Column privileges also limit signed-in users' updates on `submissions` to `current_playoff`, `current_tiebreakers`, `champion_id` and `updated_at`, since RLS policies can't restrict columns. See [Data](#data).
+- **Login page and route gating:** the login form lives on a dedicated `/login` page. Next.js 16's `proxy.ts` (formerly `middleware.ts`) refreshes the session on every request (PR 10) and redirects logged-out users from My Picks to `/login` (PR 11).
+- **Nav bar login state:** the root layout reads the session user on the server and passes it to the nav bar, rather than the nav bar fetching `GET /api/me`. This avoids a logged-out flash and needs no refetch after login or logout; the cost is that pages render per request, which is fine at this scale. Logged out: a "Log In" link. Logged in: an avatar button whose dropdown confirms "Log Out" (PR 12).
+- **Login rate limits don't get their own message:** Supabase's 30-second minimum interval is per email and may apply only to registered addresses, so a distinct "please wait" response could reveal who is registered. The request-code route returns the same generic success for rate-limit errors as for everything else, and the login form disables "Send a New Code" for 30 seconds instead.
+- **Code length:** production sends 8-digit codes (Supabase's default) and the local stack matches. The verify route doesn't assume a length.
 
 ## Open Questions
 
