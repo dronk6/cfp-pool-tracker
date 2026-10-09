@@ -2,11 +2,20 @@
 import { describe, expect, it } from "vitest";
 import { validatePicks, type PicksInput, type Team } from "./validation";
 
-// Ids 1-15 are power-conference teams, 16-17 are not.
+// Ids 1-15 are power-conference teams, cycling ACC, Big Ten, Big 12, SEC
+// (so ids 1-4 cover all four); 16, 17 and 19 are not; 18 is Notre Dame.
+const POWER_FOUR = ["ACC", "Big Ten", "Big 12", "SEC"];
 const teams: Team[] = [
-  ...Array.from({ length: 15 }, (_, i) => ({ id: i + 1, name: `Team ${i + 1}`, is_power_conf: true })),
-  { id: 16, name: "Memphis", is_power_conf: false },
-  { id: 17, name: "Tulane", is_power_conf: false },
+  ...Array.from({ length: 15 }, (_, i) => ({
+    id: i + 1,
+    name: `Team ${i + 1}`,
+    conference: POWER_FOUR[i % 4],
+    is_power_conf: true,
+  })),
+  { id: 16, name: "Memphis", conference: "American Athletic", is_power_conf: false },
+  { id: 17, name: "Tulane", conference: "American Athletic", is_power_conf: false },
+  { id: 18, name: "Notre Dame", conference: "FBS Independent", is_power_conf: true },
+  { id: 19, name: "Troy", conference: "Sun Belt", is_power_conf: false },
 ];
 teams[0].name = "Ohio State";
 
@@ -151,6 +160,57 @@ describe("g6-required rule", () => {
     const withUnknown = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 9999];
     expect(rulesOf(picks({ newTop12: withEmpty }))).not.toContain("g6-required");
     expect(rulesOf(picks({ newTop12: withUnknown }))).not.toContain("g6-required");
+  });
+});
+
+describe("power-four-required rule", () => {
+  const message = (missing: string) =>
+    `Your top 12 needs at least one team from each Power Four conference. Missing: ${missing}.`;
+  const violationsOf = (newTop12: (number | null)[]) =>
+    validatePicks(picks({ newTop12 })).filter((v) => v.rule === "power-four-required");
+
+  it("passes when the top 12 has a team from each Power Four conference", () => {
+    expect(rulesOf(picks())).not.toContain("power-four-required");
+  });
+
+  it("reports one missing conference", () => {
+    // No SEC team (ids 4, 8, 12).
+    expect(violationsOf([1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 16])).toEqual([
+      { rule: "power-four-required", message: message("SEC") },
+    ]);
+  });
+
+  it("names several missing conferences in one violation, in a stable order", () => {
+    // Only ACC and Big Ten among the power conferences.
+    expect(violationsOf([1, 2, 5, 6, 9, 10, 13, 14, 16, 17, 18, 19])).toEqual([
+      { rule: "power-four-required", message: message("Big 12, SEC") },
+    ]);
+  });
+
+  it("does not count Notre Dame toward any conference", () => {
+    // Notre Dame fills the slot where the SEC team would be.
+    expect(violationsOf([1, 2, 3, 18, 5, 6, 7, 9, 10, 11, 13, 16])).toEqual([
+      { rule: "power-four-required", message: message("SEC") },
+    ]);
+  });
+
+  it("is not reported while a slot is empty or unrecognized", () => {
+    const withEmpty = [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, null];
+    const withUnknown = [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 9999];
+    expect(rulesOf(picks({ newTop12: withEmpty }))).not.toContain("power-four-required");
+    expect(rulesOf(picks({ newTop12: withUnknown }))).not.toContain("power-four-required");
+    expect(rulesOf(picks({ newTop12: [1, 2, 3] }))).not.toContain("power-four-required");
+  });
+
+  it("is reported separately from g6-required when both are violated", () => {
+    // All power-conference teams, none from the SEC.
+    const violations = validatePicks(
+      picks({ newTop12: [1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15], newTiebreakers: [16, 17, 19] }),
+    );
+    expect(violations.map((v) => v.rule).filter((r) => r === "g6-required" || r === "power-four-required")).toEqual([
+      "g6-required",
+      "power-four-required",
+    ]);
   });
 });
 
