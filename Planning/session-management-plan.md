@@ -30,9 +30,9 @@ Supabase Auth issues a session made of two things on successful OTP verification
 
 The **`@supabase/ssr`** package is what bridges Supabase's session objects into Next.js cookies. It gives you:
 - `createBrowserClient(...)` — a Supabase client for use in Client Components.
-- `createServerClient(...)` — a Supabase client for use in Server Components, Route Handlers, and middleware, wired up with a cookie adapter so that whenever `supabase.auth.signInWithOtp`, `verifyOtp`, `signOut`, or an automatic token refresh happens, the resulting cookies are read from and written to the actual Next.js request/response automatically.
+- `createServerClient(...)` — a Supabase client for use in Server Components, Route Handlers, and the proxy, wired up with a cookie adapter so that whenever `supabase.auth.signInWithOtp`, `verifyOtp`, `signOut`, or an automatic token refresh happens, the resulting cookies are read from and written to the actual Next.js request/response automatically.
 
-Functionally, this gives us the same properties the original plan specified by hand: the session is carried in cookies set with `HttpOnly`, `Secure`, and `SameSite=Lax` (the `@supabase/ssr` defaults match what we would have configured ourselves), so client-side JavaScript can't read them directly (XSS protection) and the browser attaches them automatically on every request to our domain. We get this by configuring `@supabase/ssr` correctly rather than writing `res.cookie(...)` calls ourselves.
+Functionally, this gives us the same properties the original plan specified by hand: the session is carried in cookies set with `HttpOnly`, `Secure` (in production) and `SameSite=Lax`, so client-side JavaScript can't read them directly (XSS protection) and the browser attaches them automatically on every request to our domain. The `@supabase/ssr` defaults do **not** do this on their own: they set `httpOnly: false` and no `secure` flag (checked in 0.12.7), because the library expects a browser client to read the cookies. We have no browser client, so `lib/supabase/config.ts` overrides the defaults explicitly (`secure` is off outside production so sign-in works over http on localhost). We get this by configuring `@supabase/ssr` rather than writing `res.cookie(...)` calls ourselves.
 
 ### Local vs. remote verification — now `getSession()` vs. `getUser()`
 
@@ -41,7 +41,7 @@ The original plan framed this as "local JWT verification" (fast, no network call
 - **`supabase.auth.getSession()`** reads the session out of the cookie/local storage and decodes it locally — fast, but in a server context it's reading a value that arrived with the request and hasn't been re-checked against Supabase.
 - **`supabase.auth.getUser()`** sends the access token to Supabase's Auth server to re-validate it before returning the user. Slightly slower (one network hop), but authoritative.
 
-**Recommendation for this project, anywhere we're deciding "is this request authenticated" on the server (middleware, Route Handlers, Server Components): use `getUser()`, not `getSession()`.** This is also Supabase's own official guidance for server-side code — `getSession()` alone is explicitly called out in their docs as unsafe to trust server-side. Given this is a hobby project with low traffic, the extra network hop is not a meaningful cost, and it's the same "don't trust what the client handed you without checking" instinct the original plan applied to JWTs.
+**Recommendation for this project, anywhere we're deciding "is this request authenticated" on the server (the proxy, Route Handlers, Server Components): use `getUser()`, not `getSession()`.** This is also Supabase's own official guidance for server-side code — `getSession()` alone is explicitly called out in their docs as unsafe to trust server-side. Given this is a hobby project with low traffic, the extra network hop is not a meaningful cost, and it's the same "don't trust what the client handed you without checking" instinct the original plan applied to JWTs.
 
 ### A critical distinction: identity vs. permission
 
@@ -55,17 +55,19 @@ Verifying a session tells you *who* is making a request. It does **not** tell yo
 
 ### Step 1: Set up the Supabase clients
 
-Install `@supabase/supabase-js` and `@supabase/ssr`. Create a server client factory (`createServerClient`), used anywhere server-side code needs to know who's logged in. This is where the cookie adapter is wired up — it needs read/write access to the request's cookies, which looks slightly different in a Route Handler vs. a Server Component vs. middleware, per `@supabase/ssr`'s Next.js setup docs (linked below).
+Install `@supabase/supabase-js` and `@supabase/ssr`. Create a server client factory (`createServerClient`), used anywhere server-side code needs to know who's logged in. This is where the cookie adapter is wired up — it needs read/write access to the request's cookies, which looks slightly different in a Route Handler vs. a Server Component vs. the proxy, per `@supabase/ssr`'s Next.js setup docs (linked below).
 
 We don't create a browser client (`createBrowserClient`): per [design-document.md](./design-document.md), the browser never talks to Supabase directly, and all auth calls go through the Route Handlers in the OTP doc to keep the enumeration-safe wrapping server-side.
 
 The server client is initialized with `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (deliberately no `NEXT_PUBLIC_` prefix, so neither is bundled for the browser) — **never** `SUPABASE_SECRET_KEY` from the OTP doc's seeding script, which bypasses RLS and is for local admin scripts only. Because the client carries the user's session, the RLS policies in Step 4 apply to every query it makes.
 
-### Step 2: Add `middleware.ts` to refresh sessions and gate routes
+### Step 2: Add `proxy.ts` to refresh sessions and gate routes
 
-`@supabase/ssr`'s documented Next.js pattern has `middleware.ts` do two things on every request:
+`@supabase/ssr`'s documented Next.js pattern has the middleware do two things on every request (Next.js 16 renamed `middleware.ts` to `proxy.ts`):
 1. Call `supabase.auth.getUser()` using the server client. This both validates the session *and* triggers an automatic token refresh if the access token is near expiry, rewriting the refreshed cookies onto the response — this replaces the original plan's manual "match cookie maxAge to JWT exp" bookkeeping, since Supabase/`@supabase/ssr` handles refreshing for you.
 2. If there's no valid user and the request is for a page that requires login (e.g., "My Picks"), redirect to `/login`. If there is a valid user, let the request through.
+
+The session refresh (1) is built: `proxy.ts` calls `updateSession` in `lib/supabase/proxy.ts`, and fails open if Supabase errors. The redirect (2) is not: it is added with the login page in #19, since `/login` does not exist yet.
 
 This is the same role `middleware.ts` played in the original plan — gating permissioned pages before they render — just backed by `getUser()` instead of manual JWT verification.
 
@@ -110,15 +112,15 @@ called from a Route Handler (e.g., `POST /api/logout`) using the server client. 
 - Confirm submissions fetched are scoped to the logged-in user only (test with two different accounts).
 - Confirm editing picks outside the submission window is rejected by the API even if you manually re-enable the button via devtools.
 - Confirm logout clears the session and subsequent requests are treated as logged out, including that the old refresh token can no longer silently produce a new access token.
-- Confirm an access token near/at expiry is transparently refreshed by `middleware.ts` without forcing a re-login.
+- Confirm an access token near/at expiry is transparently refreshed by `proxy.ts` without forcing a re-login.
 
 ## Summary of Pieces
 
 | Piece | Where it lives | Purpose |
 |---|---|---|
 | Supabase project (Auth + Postgres) | Supabase, free tier | Issues, signs, stores, and refreshes sessions; stores `auth.users` and our `profiles`/`submissions` tables |
-| `@supabase/ssr` server client | Server Components, Route Handlers, `middleware.ts` | Reads/writes the session cookies; the only place `getUser()` should be trusted |
-| `middleware.ts` | Next.js | Refreshes the session on each request, gates permissioned pages, redirects unauthenticated users |
+| `@supabase/ssr` server client | Server Components, Route Handlers, `proxy.ts` | Reads/writes the session cookies; the only place `getUser()` should be trusted |
+| `proxy.ts` | Next.js | Refreshes the session on each request, gates permissioned pages, redirects unauthenticated users |
 | `GET /api/me` | Next.js Route Handler | Gives the client profile info the `HttpOnly` cookies themselves can't expose |
 | `POST /api/logout` | Next.js Route Handler | Calls `supabase.auth.signOut()`, which revokes the session server-side and clears cookies |
 | `profiles` table + RLS policies | Supabase Postgres | Holds name/email data linked to `auth.users`; RLS adds defense-in-depth scoping |
