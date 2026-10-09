@@ -220,7 +220,7 @@ The Gmail app password is not an environment variable; it lives only in the Supa
 
 *Lightweight overview only — method, path, and purpose. Request/response bodies belong in a future, dedicated API contracts doc.*
 
-- `GET /api/teams` — fetch the full reference list of teams (id, name, conference, power-conference flag) used to populate pick selectors and drive validation.
+- `GET /api/teams` — fetch the full reference list of teams (id, name, conference, power-conference flag, image URL) used to populate pick selectors and drive validation. Contract: `200` bare array, ordered by name (the database's ordering; clients that need a specific order should sort themselves), of `{id, name, conference, is_power_conf, image_url}` (snake_case, matching the database and `lib/validation`'s `Team`; `image_url` may be `null`); `401 unauthenticated`; `500 internal`; `Cache-Control: no-store` on every status. Any signed-in user may read it; a `profiles` row is not required.
 - `GET /api/submissions/:year` — fetch the logged-in user's submission for the given year (both their initial and current picks). User is identified via the verified session, not a URL param. Contract: `200` flat camelCase `{year, initialPlayoff, initialTiebreakers, currentPlayoff, currentTiebreakers, championId, submittedAt, updatedAt}` (team ids only, no names, no row or user ids); `400 invalid-year` (year must match `^[1-9]\d{3}$`); `401 unauthenticated`; `404 submission-not-found` (identical whether nobody or only another user has a row); `500 internal`; `Cache-Control: no-store` on every status. The edit window is not part of the response.
 - `PUT /api/submissions/:year` — update the logged-in user's existing submission for the given year (the week 6/7 revision window). The server enforces only: (1) a valid session, (2) the row being written belongs to the session user (ID from the session, never the request), and (3) the current server time is inside the edit window from the `seasons` table (otherwise reject with a clear error). It does **not** re-validate pick contents (counts, G6, move limit, champion) — the client does that, and the API trusts it (see [Decisions](#decisions-from-design-review)). On success it overwrites `current_playoff`, `current_tiebreakers`, `champion_id` and sets `updated_at`; `initial_*` are never modified. There is no user-facing "create" endpoint: per Scope, self-service initial submission isn't supported this season (it's a Low Priority roadmap item) — initial picks are collected by Tyler out-of-band and seeded directly, the same way participant accounts are seeded (see [otp-authentication-plan.md](./otp-authentication-plan.md)).
 - `GET /api/me` — profile info for the logged-in user (name, email), per [session-management-plan.md](./session-management-plan.md).
@@ -603,10 +603,11 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 13: Add `GET /api/teams`
   - User Story: As a user, I would like a list of teams to choose from when editing picks.
   - Requirements:
-    - Returns id, name, conference and power-conference flag for every team.
+    - Returns id, name, conference, power-conference flag and image URL for every team.
     - Requires a valid session.
   - Notes:
     - Database access uses the server-side Supabase client only.
+    - Server components (PRs 16 and 17) read the list through `getTeams()` in `lib/teams.ts` directly instead of fetching this route.
   - Blockers/Open Questions:
     - Depends on PRs 6 and 12, and M6.
 
@@ -805,6 +806,7 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **Login rate limits don't get their own message:** Supabase's 30-second minimum interval is per email and may apply only to registered addresses, so a distinct "please wait" response could reveal who is registered. The request-code route returns the same generic success for rate-limit errors as for everything else, and the login form disables "Send a New Code" for 30 seconds instead.
 - **Login flow details (PR 11):** "Send a New Code" and "Cancel" appear as soon as the code form does. Gated pages fail closed when the session can't be checked, there is no "return to" parameter, and a successful login does a full page load.
 - **Log out scope (PR 12):** "Log Out" signs the user out of the current device only, so logging out on a laptop doesn't end their phone session. `POST /api/logout` needs no CSRF token: it is POST-only and the session cookies are `SameSite=Lax`, so a cross-site request arrives signed out.
+- **`GET /api/teams` (PR 13):** returns every team as a bare array ordered by name (the database's ordering; clients that need a specific order should sort themselves), with snake_case fields so it feeds `validatePicks` unchanged. `image_url` is included beyond the original field list because the pick selectors will want logos. Any signed-in user can read it (no `profiles` row needed), and RLS only lets `authenticated` read `teams`. Never cached. Server components (PRs 16 and 17) call `getTeams()` directly instead of fetching the route.
 - **`GET /api/submissions/:year` (PR 14):** returns only the session user's row, selected by `user_id` from the verified session plus the year, with RLS as a second wall. A year with no row for the caller returns the same 404 whether nobody or only another user has one. The response carries team ids only (`GET /api/teams` is the reference list) and not the edit window; PR 15 adds a server-side season reader that PR 19 calls directly. Server components (PR 16) call `getSessionSubmission` directly instead of fetching the route, per the Next.js guidance to fetch from the source in Server Components.
 - **Code length:** production sends 8-digit codes (Supabase's default) and the local stack matches. The verify route doesn't assume a length.
 

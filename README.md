@@ -56,7 +56,7 @@ RUN_DB_TESTS=1 npm test                        # bash / Git Bash
 $env:RUN_DB_TESTS = "1"; npm test              # PowerShell (stays set for that terminal; Remove-Item Env:RUN_DB_TESTS to unset)
 ```
 
-They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern. `app/api/auth/otp.db.test.ts` runs the sign-in routes against the stack (it also needs `SUPABASE_PUBLISHABLE_KEY` in `.env.local`), and `app/api/session.db.test.ts` does the same for `/api/me` and `/api/logout`; it creates throwaway users and deletes them afterwards, and fakes only `next/headers`. `app/api/submissions.db.test.ts` covers `GET /api/submissions/:year`, including that one user can't read another's picks (it needs teams already seeded; it never writes to `teams`). Run just those with `RUN_DB_TESTS=1 npx vitest run app/api/auth/otp.db`, `... app/api/session.db` or `... app/api/submissions.db`.
+They write to the local database, and refuse to run unless `SUPABASE_URL` points at `127.0.0.1` or `localhost`. To add one, name it `*.db.test.ts`, start it with `// @vitest-environment node`, wrap the suite in `describe.skipIf(!runDbTests)` and create the client with `createLocalAdminClient()` in `beforeAll`, both from [tests/local-db.ts](./tests/local-db.ts). `scripts/seed-teams/seed-teams.db.test.ts` shows the pattern. `app/api/auth/otp.db.test.ts` runs the sign-in routes against the stack (it also needs `SUPABASE_PUBLISHABLE_KEY` in `.env.local`), and `app/api/session.db.test.ts` does the same for `/api/me` and `/api/logout`; it creates throwaway users and deletes them afterwards, and fakes only `next/headers`. `app/api/submissions.db.test.ts` covers `GET /api/submissions/:year`, including that one user can't read another's picks (it needs teams already seeded; it never writes to `teams`). `app/api/teams.db.test.ts` covers `GET /api/teams` (it needs teams already seeded and never writes to `teams`). Run just those with `RUN_DB_TESTS=1 npx vitest run app/api/auth/otp.db`, `... app/api/session.db`, `... app/api/submissions.db` or `... app/api/teams.db`.
 
 ### Routes
 
@@ -119,6 +119,14 @@ The root layout ([app/layout.tsx](./app/layout.tsx)) reads the session user on t
 | `GET /api/submissions/:year` | `200` with the session user's picks for that year as flat JSON: `{"year":2026,"initialPlayoff":[...12 team ids],"initialTiebreakers":[...3],"currentPlayoff":[...12],"currentTiebreakers":[...3],"championId":null,"submittedAt":"...","updatedAt":null}`. Team ids only (use `GET /api/teams` for names); `championId` and `updatedAt` are `null` until the first revision. `400 {"error":"invalid-year"}` unless the year is exactly four digits with no leading zero; `401 {"error":"unauthenticated"}` without a valid session; `404 {"error":"submission-not-found"}` if the user has no row for that year (the same answer whether nobody or only someone else has one); `500 {"error":"internal"}`. The user always comes from the verified session; only the `:year` path segment is read from the request. Never cached. |
 
 The lookup lives in `getSessionSubmission(year)` in [lib/submissions/submission.ts](./lib/submissions/submission.ts). Server components (such as My Picks) should call it directly rather than fetch this route.
+
+### Reading teams
+
+| Route | Result |
+|-------|--------|
+| `GET /api/teams` | `200` with a bare JSON array of every team, ordered by name (the database's ordering; clients that need a specific order should sort themselves): `[{"id":87,"name":"Notre Dame","conference":"FBS Independent","is_power_conf":true,"image_url":"https://..."}, ...]`. Field names are snake_case to match the database and `lib/validation`'s `Team`, so the array can go straight into `validatePicks`. `image_url` is `null` if a team has no logo. An empty `teams` table gives `200 []`. `401 {"error":"unauthenticated"}` without a valid session (a `profiles` row is not required); `500 {"error":"internal"}`. Never cached. |
+
+The lookup lives in `getTeams()` in [lib/teams.ts](./lib/teams.ts). Server components (such as My Picks and the edit view) should call it directly rather than fetch this route. `app/api/teams.db.test.ts` runs the route against the local stack; it reads the seeded teams and never writes to `teams`, so run `npm run seed:teams` first (`RUN_DB_TESTS=1 npx vitest run app/api/teams.db`).
 
 ## Continuous Integration
 
