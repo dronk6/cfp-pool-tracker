@@ -101,7 +101,7 @@ As a user, I would like to view and modify my submitted picks for the current se
   - Maybe we offer a side-by-side view for before and after? Could be tough on mobile
   - Has "save" and "cancel" buttons at bottom
     - Nice-to-have: An "Are you sure?" on cancel
-  - When edit is saved, picks are updated on the backend via POST request and updated picks are shown on "My Picks" page
+  - When edit is saved, picks are updated on the backend via PUT request and updated picks are shown on "My Picks" page
 - Add a champion selector to the edit view (a choice among the 12 teams currently in the top 12). Required to save.
 - Set up validation:
   - When "Save" is hit in the edit view, validate new picks against the [Validation Rules](#validation-rules). Validation lives only in the client (shared pure functions in e.g. `lib/validation.ts`).
@@ -222,7 +222,7 @@ The Gmail app password is not an environment variable; it lives only in the Supa
 
 - `GET /api/teams` — fetch the full reference list of teams (id, name, conference, power-conference flag) used to populate pick selectors and drive validation.
 - `GET /api/submissions/:year` — fetch the logged-in user's submission for the given year (both their initial and current picks). User is identified via the verified session, not a URL param. Contract: `200` flat camelCase `{year, initialPlayoff, initialTiebreakers, currentPlayoff, currentTiebreakers, championId, submittedAt, updatedAt}` (team ids only, no names, no row or user ids); `400 invalid-year` (year must match `^[1-9]\d{3}$`); `401 unauthenticated`; `404 submission-not-found` (identical whether nobody or only another user has a row); `500 internal`; `Cache-Control: no-store` on every status. The edit window is not part of the response.
-- `PUT /api/submissions/:year` — update the logged-in user's existing submission for the given year (the week 6/7 revision window). The server enforces only: (1) a valid session, (2) the row being written belongs to the session user (ID from the session, never the request), and (3) the current server time is inside the edit window from the `seasons` table (otherwise reject with a clear error). It does **not** re-validate pick contents (counts, G6, move limit, champion) — the client does that, and the API trusts it (see [Decisions](#decisions-from-design-review)). On success it overwrites `current_playoff`, `current_tiebreakers`, `champion_id` and sets `updated_at`; `initial_*` are never modified. There is no user-facing "create" endpoint: per Scope, self-service initial submission isn't supported this season (it's a Low Priority roadmap item) — initial picks are collected by Tyler out-of-band and seeded directly, the same way participant accounts are seeded (see [otp-authentication-plan.md](./otp-authentication-plan.md)).
+- `PUT /api/submissions/:year` — update the logged-in user's existing submission for the given year (the week 6/7 revision window). The server enforces only: (1) a valid session, (2) the row being written belongs to the session user (ID from the session, never the request), and (3) the current server time is inside the edit window from the `seasons` table (otherwise reject with a clear error). It does **not** re-validate pick contents (counts, G6, move limit, champion) — the client does that, and the API trusts it (see [Decisions](#decisions-from-design-review)); it does check the body's shape (see the PR 15 decision). Contract: body `{currentPlayoff, currentTiebreakers, championId}` and nothing else; `200` the full submission in `GET`'s shape; `400 invalid-year`; `401 unauthenticated`; `415 unsupported-media-type`; `400 invalid-body`; `403 outside-edit-window` with `editOpensAt`/`editClosesAt` (ISO, or `null` if the year has no `seasons` row); `404 submission-not-found`; `500 internal`; `Cache-Control: no-store` on every status. On success it overwrites `current_playoff`, `current_tiebreakers`, `champion_id` and sets `updated_at`; `initial_*` are never modified. There is no user-facing "create" endpoint: per Scope, self-service initial submission isn't supported this season (it's a Low Priority roadmap item) — initial picks are collected by Tyler out-of-band and seeded directly, the same way participant accounts are seeded (see [otp-authentication-plan.md](./otp-authentication-plan.md)).
 - `GET /api/me` — profile info for the logged-in user (name, email), per [session-management-plan.md](./session-management-plan.md).
 
 ### Data
@@ -628,10 +628,15 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Writes only the session user's row; `initial_*` columns are never modified.
     - Rejects with a clear error if the server time is outside `edit_opens_at`/`edit_closes_at` from `seasons`.
     - On success, overwrites `current_playoff`, `current_tiebreakers`, `champion_id` and sets `updated_at`.
-    - Does not re-validate pick contents (per [Decisions](#decisions-from-design-review)).
+    - Does not re-validate pick contents (per [Decisions](#decisions-from-design-review)). It does check the body's shape (see Notes).
   - Notes:
     - Tests should cover the exact boundary times, and a request that tries to supply a different user ID.
     - Signed-in users only have UPDATE privileges on `current_playoff`, `current_tiebreakers`, `champion_id` and `updated_at` (see [Data](#data)), so the update must write only those columns.
+    - The window is half-open: edits are allowed iff `edit_opens_at <= now < edit_closes_at`. "Now" is the server clock (`lib/clock.ts`), and `updated_at` is set to the same instant. No migration; the database does not enforce the window (see Follow-ups).
+    - Body is exactly `{currentPlayoff, currentTiebreakers, championId}`; any other key (e.g. `userId`) is a 400. Lists have exactly 12 and 3 entries; every entry and `championId` (required, not null) is an integer from 1 to 2147483647. A champion that isn't a team is a 400 `invalid-body`.
+    - Statuses, in order: `400 invalid-year`, `401 unauthenticated`, `415 unsupported-media-type`, `400 invalid-body`, `403 outside-edit-window` (with `editOpensAt`/`editClosesAt`, ISO or `null` when the year has no `seasons` row), `404 submission-not-found`, `200` with the full submission (same shape as GET), `500 internal`. `Cache-Control: no-store` on all.
+    - Adds `getSeason(year)` (`lib/seasons/get-season.ts`), `isEditWindowOpen(season, now)` (`lib/seasons/edit-window.ts`) and the server clock `lib/clock.ts`; PR 19 reuses the first two.
+    - No CSRF token: `SameSite=Lax` cookies, a form can't send PUT, and requiring JSON forces a CORS preflight.
   - Blockers/Open Questions:
     - Depends on PRs 7 and 14, and M7.
 
@@ -667,6 +672,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Server errors (e.g., outside the window) are shown to the user and the existing picks remain.
   - Notes:
     - The change-summary popup is a separate follow-up (nice-to-have).
+    - Error codes from `PUT /api/submissions/:year` (PR 15) to handle: `401 unauthenticated`, `403 outside-edit-window` (with `editOpensAt`/`editClosesAt` as ISO strings, or `null` if the year has no season), `404 submission-not-found`, `400 invalid-body` (including a champion that isn't a team), `415 unsupported-media-type` (send `Content-Type: application/json`), `500 internal`. The body must be exactly `{currentPlayoff, currentTiebreakers, championId}`.
   - Blockers/Open Questions:
     - Depends on PRs 9, 15, 17 and 25.
 
@@ -676,7 +682,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Edit button is disabled outside the window, using the same `seasons` window the server enforces, delivered by the server.
     - Disabled state tells the user when editing opens/closes.
   - Notes:
-    - The window comes from a server-side season reader added in PR 15 (the same one the PUT check uses) and called directly by the page, not from `GET /api/submissions/:year`'s response. The server check in PR 15 remains the real enforcement.
+    - The window comes from `getSeason` added in PR 15 (the same reader the PUT check uses), compared with `isEditWindowOpen(season, now())` and called directly by the page, not from `GET /api/submissions/:year`'s response. In a Server Component, call `now()` after `cookies()` (which `getSeason` does when it creates its client), because Cache Components rejects reading the time before a request read. `getSeason` returns null both when there's no season and when the client isn't signed in (RLS returns no rows), so check the session first; call `now()` only after awaiting `getSeason` (never evaluate it before, e.g. inside a `Promise.all`); render under Suspense. The server check in PR 15 remains the real enforcement.
   - Blockers/Open Questions:
     - Depends on PRs 15 and 16.
 
@@ -780,6 +786,10 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 
 Nice-to-haves from the My Picks section, to be ticketed only if time permits: team autocomplete dropdown, showing the previous team in each slot, "Are you sure?" on cancel, change-summary popup on save, side-by-side before/after view, conference labels/logos.
 
+Hardening, also only if time permits:
+
+- Enforce the edit window in the database (RLS update policy or RPC) as defense in depth. Today only the API checks it, so someone holding the publishable key and their own access token could edit outside the window by calling Supabase directly (they could still change only their own current picks).
+
 ## Decisions from Design Review
 
 *Resolved during pre-approval design review (10/01). Each decision is reflected in the sections above.*
@@ -806,6 +816,12 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
 - **Login flow details (PR 11):** "Send a New Code" and "Cancel" appear as soon as the code form does. Gated pages fail closed when the session can't be checked, there is no "return to" parameter, and a successful login does a full page load.
 - **Log out scope (PR 12):** "Log Out" signs the user out of the current device only, so logging out on a laptop doesn't end their phone session. `POST /api/logout` needs no CSRF token: it is POST-only and the session cookies are `SameSite=Lax`, so a cross-site request arrives signed out.
 - **`GET /api/submissions/:year` (PR 14):** returns only the session user's row, selected by `user_id` from the verified session plus the year, with RLS as a second wall. A year with no row for the caller returns the same 404 whether nobody or only another user has one. The response carries team ids only (`GET /api/teams` is the reference list) and not the edit window; PR 15 adds a server-side season reader that PR 19 calls directly. Server components (PR 16) call `getSessionSubmission` directly instead of fetching the route, per the Next.js guidance to fetch from the source in Server Components.
+- **`PUT /api/submissions/:year` (PR 15):**
+  - **Window boundaries:** half-open. Edits are allowed iff `edit_opens_at <= now < edit_closes_at`, so the closing instant is closed and back-to-back windows can't overlap.
+  - **Server clock:** "now" comes from `lib/clock.ts` (`now()`), never from the request, and `updated_at` is set to the same instant used for the check. Tests mock `lib/clock` only, not the global `Date`, because the Supabase auth client uses `Date.now()` to refresh sessions. No migration: the database does not enforce the window (see Follow-ups).
+  - **Shape checks only:** the body must be exactly `{currentPlayoff, currentTiebreakers, championId}`; any other key (`userId`, `user_id`, `initialPlayoff`, `year`, ...) is a 400. `currentPlayoff` has exactly 12 entries and `currentTiebreakers` exactly 3, and every entry and `championId` (required, not null) is an integer from 1 to 2147483647. A champion that isn't a team (Postgres 23503) is also a 400 `invalid-body`. This is a small, deliberate addition to "the API does not re-validate pick contents": it keeps junk and user-identifying fields out of the write without duplicating the pool's rules.
+  - **Statuses:** 403 `outside-edit-window` (also when the year has no `seasons` row) and 415 `unsupported-media-type` for a non-JSON content type. Checks run in order: year, session, content type, body, window, write, so a signed-out caller learns nothing about the body rules.
+  - **No CSRF token:** session cookies are `SameSite=Lax`, `PUT` can't come from an HTML form, and requiring `application/json` forces a CORS preflight that the API never approves. Consistent with the logout decision.
 - **Code length:** production sends 8-digit codes (Supabase's default) and the local stack matches. The verify route doesn't assume a length.
 
 ## Open Questions
