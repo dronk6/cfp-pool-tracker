@@ -54,7 +54,7 @@ describe("MyPicksSection", () => {
       editDisabledReason: "Editing opens Sun, Oct 11 at 12:00 AM ET.",
       initialTop12: [1],
       view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
-      teams: [{ id: 1, name: "Ohio State", imageUrl: null }],
+      teams: [{ id: 1, name: "Ohio State", imageUrl: null, conference: "Big Ten", isPowerConf: true }],
     });
     await renderSection();
 
@@ -72,7 +72,7 @@ describe("MyPicksSection", () => {
       editDisabledReason: null,
       initialTop12: [1],
       view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
-      teams: [{ id: 1, name: "Ohio State", imageUrl: null }],
+      teams: [{ id: 1, name: "Ohio State", imageUrl: null, conference: "Big Ten", isPowerConf: true }],
     });
     await renderSection();
 
