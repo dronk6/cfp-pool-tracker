@@ -46,3 +46,11 @@ export function buildPicksView(submission: Submission, teams: Team[]): PicksView
     champion: submission.championId === null ? null : toTeamView(submission.championId, teamsById),
   };
 }
+
+/** What the edit view needs to know about a team. Nothing else goes to the browser. */
+export type TeamOption = { id: number; name: string; imageUrl: string | null };
+
+/** Strips every column but the ones the selectors use; keeps the given order. */
+export function toTeamOptions(teams: Team[]): TeamOption[] {
+  return teams.map((team) => ({ id: team.id, name: team.name, imageUrl: team.image_url }));
+}
