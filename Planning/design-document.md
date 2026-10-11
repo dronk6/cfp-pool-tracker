@@ -56,7 +56,7 @@ As a user, I would like to know more about the site I just landed on.
 - Create a new page.
 - Add a "Welcome" section to the page, explaining the purpose of the application.
 - Add a "Viewing and Modifying Picks" section to the page, explaining how to log in, view picks, and when picks can be modified.
-- Add a "Questions?" section to the page, telling users to ask Tyler for help. Tell them to buzz off if they don't know who Tyler is (clearly they're in the wrong place).
+- Add a "Questions?" section to the page, telling users to ask Tyler for help.
 
 ### Login Component
 
