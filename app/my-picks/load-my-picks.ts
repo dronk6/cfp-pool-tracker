@@ -7,7 +7,13 @@ import { getSessionSubmission } from "../../lib/submissions/submission";
 import { getTeams } from "../../lib/teams";
 
 export type MyPicksResult =
-  | { kind: "ok"; view: PicksView; teams: TeamOption[]; editDisabledReason: string | null }
+  | {
+      kind: "ok";
+      view: PicksView;
+      teams: TeamOption[];
+      editDisabledReason: string | null;
+      initialTop12: number[];
+    }
   | { kind: "signed-out" }
   | { kind: "no-submission" }
   | { kind: "error" };
@@ -16,9 +22,10 @@ export type MyPicksResult =
  * Loads the session user's picks for `year`. Submission first, then teams, one
  * after the other so two token refreshes never race, and teams are skipped when
  * there is nothing to show. A failed session check counts as signed out
- * (fail closed). Only `view`, the id/name/logo `teams` and the edit-window
- * message leave this function: no user id, email, initial picks or window
- * timestamps.
+ * (fail closed). What leaves this function is the view, the team options, the
+ * edit-window message and the user's own initial top 12 ids (the browser counts
+ * moves against them): no user id, email, timestamps, initial First Three Out
+ * or window timestamps.
  */
 export async function loadMyPicks(year: number): Promise<MyPicksResult> {
   try {
@@ -34,6 +41,7 @@ export async function loadMyPicks(year: number): Promise<MyPicksResult> {
       view: buildPicksView(session.submission, teams.teams),
       teams: toTeamOptions(teams.teams),
       editDisabledReason: await loadEditDisabledReason(year),
+      initialTop12: session.submission.initialPlayoff,
     };
   } catch (error) {
     // Let Next.js's own control-flow errors (e.g. request-time bailouts) through.

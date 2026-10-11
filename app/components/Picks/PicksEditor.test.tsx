@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { PicksDraft } from "../../../lib/edit-picks";
 import type { PicksView, TeamOption } from "../../../lib/picks-view";
+import type { SaveOutcome } from "../../../lib/save-picks";
 import PicksEditor from "./PicksEditor";
 
 // Alphabetical, like the database order: "Team 01" ... "Team 20".
@@ -10,6 +11,8 @@ const teams: TeamOption[] = Array.from({ length: 20 }, (_, i) => ({
   id: i + 1,
   name: `Team ${String(i + 1).padStart(2, "0")}`,
   imageUrl: null,
+  conference: "X",
+  isPowerConf: true,
 }));
 
 const pick = (rank: number, teamId = rank) => ({ rank, teamId, name: `Team ${teamId}`, imageUrl: null });
@@ -23,12 +26,17 @@ function view(overrides: Partial<PicksView> = {}): PicksView {
   };
 }
 
-function setup(props: { view?: PicksView; onSave?: (draft: PicksDraft) => void } = {}) {
+function setup(props: { view?: PicksView; onSave?: (draft: PicksDraft) => Promise<SaveOutcome> } = {}) {
   const onCancel = vi.fn();
   const user = userEvent.setup();
   render(<PicksEditor view={props.view ?? view()} teams={teams} onCancel={onCancel} onSave={props.onSave} />);
   return { user, onCancel };
 }
+
+const SAVED: SaveOutcome = {
+  kind: "saved",
+  picks: { currentPlayoff: [], currentTiebreakers: [], championId: 1 },
+};
 
 const slot = (n: number) => screen.getByRole("combobox", { name: `Slot ${n}` });
 const champion = () => screen.getByRole("combobox", { name: "Champion" });
@@ -56,7 +64,7 @@ describe("PicksEditor", () => {
   });
 
   it("passes the local edits to onSave", async () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(SAVED);
     const { user } = setup({ onSave });
 
     await user.selectOptions(slot(1), "Team 20");
@@ -125,7 +133,7 @@ describe("PicksEditor", () => {
   });
 
   it("lets the user choose a different champion", async () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(SAVED);
     const { user } = setup({ onSave });
 
     await user.selectOptions(champion(), "Team 07");
@@ -135,7 +143,7 @@ describe("PicksEditor", () => {
   });
 
   it("turns the blank option into an empty slot", async () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(SAVED);
     const { user } = setup({ onSave });
 
     await user.selectOptions(slot(5), "Choose a team");
@@ -145,7 +153,7 @@ describe("PicksEditor", () => {
   });
 
   it("hints at duplicates without blocking anything", async () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn().mockResolvedValue(SAVED);
     const { user } = setup({ onSave });
 
     await user.selectOptions(slot(13), "Team 01");
@@ -186,4 +194,144 @@ describe("PicksEditor", () => {
     setup();
     expect(screen.getByRole("form", { name: "Edit your picks" })).toHaveFocus();
   });
+
+  describe("saving", () => {
+    const save = () => screen.getByRole("button", { name: /^Sav/ });
+
+    it("lists the violations, focuses the list heading's section and keeps the edits", async () => {
+      const onSave = vi.fn().mockResolvedValue({
+        kind: "invalid",
+        violations: [
+          { rule: "duplicate", message: "Team 02 appears more than once." },
+          { rule: "champion-required", message: "Choose a champion." },
+        ],
+      } satisfies SaveOutcome);
+      const { user } = setup({ onSave });
+      await user.selectOptions(slot(1), "Team 02");
+
+      await user.click(save());
+
+      const summary = await screen.findByRole("region", { name: "Fix these before saving" });
+      expect(within(summary).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+        "Team 02 appears more than once.",
+        "Choose a champion.",
+      ]);
+      expect(summary).toHaveFocus();
+      expect(slot(1)).toHaveValue("2");
+      expect(save()).not.toHaveAttribute("aria-disabled");
+    });
+
+    it("shows a failure message, offers the login link only when asked, and re-enables Save", async () => {
+      const onSave = vi
+        .fn()
+        .mockResolvedValueOnce({ kind: "failed", message: "Nope, try later." })
+        .mockResolvedValueOnce({ kind: "failed", message: "Signed out.", loginLink: true });
+      const { user } = setup({ onSave });
+
+      await user.click(save());
+      const first = await screen.findByRole("region", { name: /Nope, try later\./ });
+      expect(first).toHaveFocus();
+      expect(screen.queryByRole("link", { name: "Log in" })).not.toBeInTheDocument();
+
+      await user.click(save());
+      expect(await screen.findByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+      expect(screen.queryByText("Nope, try later.")).not.toBeInTheDocument();
+    });
+
+    it("treats a rejected onSave as a failure instead of leaving Save stuck", async () => {
+      const { user } = setup({ onSave: vi.fn().mockRejectedValue(new Error("boom")) });
+
+      await user.click(save());
+
+      expect(await screen.findByText(/Something went wrong saving your picks/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save" })).not.toHaveAttribute("aria-disabled");
+    });
+
+    it("sends one save for a double click or Enter then click, and ignores Cancel while saving", async () => {
+      let finish: (outcome: SaveOutcome) => void = () => {};
+      const onSave = vi.fn().mockReturnValue(new Promise<SaveOutcome>((resolve) => (finish = resolve)));
+      const { user, onCancel } = setup({ onSave });
+
+      await user.dblClick(save());
+      save().focus();
+      await user.keyboard("{Enter}");
+      await user.click(save());
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(onSave).toHaveBeenCalledTimes(1);
+      expect(onCancel).not.toHaveBeenCalled();
+      expect(save()).toHaveTextContent("Saving…");
+      expect(save()).toHaveAttribute("aria-disabled", "true");
+      expect(save()).not.toBeDisabled();
+
+      finish({ kind: "failed", message: "Try again." });
+      expect(await screen.findByText("Try again.")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(onCancel).toHaveBeenCalledTimes(1);
+    });
+  });
 });
+
+describe("PicksEditor save feedback", () => {
+  const save = () => screen.getByRole("button", { name: /^Sav/ });
+  const invalid: SaveOutcome = {
+    kind: "invalid",
+    violations: [{ rule: "champion-required", message: "Choose a champion." }],
+  };
+
+  it("describes the violations on the focused summary so they are announced with it", async () => {
+    const { user } = setup({ onSave: vi.fn().mockResolvedValue(invalid) });
+
+    await user.click(save());
+
+    const summary = await screen.findByRole("region", { name: "Fix these before saving" });
+    expect(summary).toHaveAccessibleDescription("Choose a champion.");
+  });
+
+  it("drops a validation summary on the next edit, but keeps a server error until the next save", async () => {
+    const onSave = vi
+      .fn()
+      .mockResolvedValueOnce(invalid)
+      .mockResolvedValueOnce({ kind: "failed", message: "Server said no." });
+    const { user } = setup({ onSave });
+
+    await user.click(save());
+    await screen.findByRole("region", { name: "Fix these before saving" });
+    await user.selectOptions(slot(1), "Team 20");
+    expect(screen.queryByRole("region", { name: "Fix these before saving" })).not.toBeInTheDocument();
+
+    await user.click(save());
+    await screen.findByText("Server said no.");
+    await user.selectOptions(champion(), "Team 05");
+    expect(screen.getByText("Server said no.")).toBeInTheDocument();
+  });
+
+  it("drops a validation summary when the champion changes", async () => {
+    const { user } = setup({ onSave: vi.fn().mockResolvedValue(invalid) });
+    await user.click(save());
+    await screen.findByRole("region", { name: "Fix these before saving" });
+
+    await user.selectOptions(champion(), "Team 05");
+
+    expect(screen.queryByRole("region", { name: "Fix these before saving" })).not.toBeInTheDocument();
+  });
+
+  it("locks the fields and announces progress while saving, then restores them", async () => {
+    let finish: (outcome: SaveOutcome) => void = () => {};
+    const onSave = vi.fn().mockReturnValue(new Promise<SaveOutcome>((resolve) => (finish = resolve)));
+    const { user } = setup({ onSave });
+
+    await user.click(save());
+
+    expect(slot(1)).toBeDisabled();
+    expect(champion()).toBeDisabled();
+    expect(screen.getByText("Saving your picks…")).toBeInTheDocument();
+    expect(save()).not.toBeDisabled();
+
+    finish({ kind: "failed", message: "Try again." });
+    await screen.findByText("Try again.");
+    expect(slot(1)).toBeEnabled();
+    expect(screen.queryByText("Saving your picks…")).not.toBeInTheDocument();
+  });
+});
+

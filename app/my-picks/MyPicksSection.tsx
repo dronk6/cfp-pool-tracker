@@ -12,7 +12,15 @@ export default async function MyPicksSection({ year }: { year: number }) {
 
   switch (result.kind) {
     case "ok":
-      return <PicksPanel view={result.view} teams={result.teams} editDisabledReason={result.editDisabledReason} />;
+      return (
+        <PicksPanel
+          view={result.view}
+          teams={result.teams}
+          editDisabledReason={result.editDisabledReason}
+          year={year}
+          initialTop12={result.initialTop12}
+        />
+      );
     case "signed-out":
       // A plain anchor (full page load) so the new session is picked up after login.
       return (

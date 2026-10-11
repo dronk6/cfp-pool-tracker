@@ -1,5 +1,5 @@
 import { useId } from "react";
-import type { TeamOption } from "../../../lib/picks-view";
+import type { TeamChoice } from "../../../lib/picks-view";
 import { teamLabel } from "../../../lib/edit-picks";
 import styles from "./TeamSelect.module.css";
 
@@ -9,7 +9,7 @@ type Props = {
   /** The chosen team id, or null for a blank slot. */
   value: number | null;
   /** The teams to choose from, in the order to show them. */
-  teams: readonly TeamOption[];
+  teams: readonly TeamChoice[];
   /** Text for the blank option, which maps to `null`. */
   placeholder?: string;
   /** Id of an element that describes this control (e.g. a duplicate hint). */

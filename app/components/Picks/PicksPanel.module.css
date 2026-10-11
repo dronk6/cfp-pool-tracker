@@ -2,3 +2,12 @@
   display: flex;
   justify-content: flex-end;
 }
+
+.notice:empty {
+  display: none;
+}
+
+.notice {
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}

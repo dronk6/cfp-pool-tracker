@@ -12,6 +12,23 @@
   font-size: 1.125rem;
 }
 
+.fields {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .championRow {
   display: flex;
   align-items: center;
@@ -74,6 +91,30 @@
   color: #b54708;
 }
 
+.summary {
+  margin-top: 1.5rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid #b54708;
+  font-size: 0.9375rem;
+}
+
+.summary h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.summary ul {
+  padding-left: 1.25rem;
+}
+
+.summary li + li {
+  margin-top: 0.25rem;
+}
+
+.summary p + p {
+  margin-top: 0.5rem;
+}
+
 .actions {
   display: flex;
   gap: 0.75rem;
@@ -93,11 +134,12 @@
   cursor: pointer;
 }
 
-.button:hover:not(:disabled) {
+.button:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--nav-hover);
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -105,5 +147,9 @@
 @media (prefers-color-scheme: dark) {
   .hint {
     color: #fec84b;
+  }
+
+  .summary {
+    border-left-color: #fec84b;
   }
 }

@@ -20,7 +20,7 @@ const duringWindow = new Date("2026-10-12T12:00:00Z");
 const submission: Submission = {
   year: 2026,
   initialPlayoff: [99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88],
-  initialTiebreakers: [87, 86, 85],
+  initialTiebreakers: [7771, 7772, 7773],
   currentPlayoff: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
   currentTiebreakers: [13, 14, 15],
   championId: 1,
@@ -59,30 +59,40 @@ describe("loadMyPicks", () => {
     }
   });
 
-  it("exposes nothing but the view: no initial picks or timestamps", async () => {
+  it("sends the user's own initial top 12 ids, but no initial tiebreakers or timestamps", async () => {
     getSessionSubmission.mockResolvedValue({ signedIn: true, submission });
     getTeams.mockResolvedValue({ signedIn: true, teams });
 
-    const json = JSON.stringify(await loadMyPicks(2026));
+    const result = await loadMyPicks(2026);
 
-    expect(json).not.toContain("99");
+    expect(result.kind === "ok" && result.initialTop12).toEqual(submission.initialPlayoff);
+    expect(Object.keys(result).sort()).toEqual(["editDisabledReason", "initialTop12", "kind", "teams", "view"]);
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("initialTiebreakers");
+    for (const id of submission.initialTiebreakers) expect(json).not.toContain(String(id));
     expect(json).not.toContain("submittedAt");
+    expect(json).not.toContain("updatedAt");
     expect(json).not.toContain("2026-01-01");
   });
 
-  it("sends the browser only each team's id, name and logo url", async () => {
+  it("sends the browser only each team's five camelCase keys", async () => {
     getSessionSubmission.mockResolvedValue({ signedIn: true, submission });
     getTeams.mockResolvedValue({ signedIn: true, teams });
 
     const result = await loadMyPicks(2026);
 
     expect(result.kind === "ok" && result.teams).toHaveLength(15);
+    if (result.kind === "ok") {
+      for (const team of result.teams) {
+        expect(Object.keys(team).sort()).toEqual(["conference", "id", "imageUrl", "isPowerConf", "name"]);
+      }
+    }
     const json = JSON.stringify(result);
-    expect(json).not.toContain("conference");
     expect(json).not.toContain("is_power_conf");
+    expect(json).not.toContain("image_url");
     expect(json).not.toContain("userId");
     expect(json).not.toContain("email");
-    expect(json).not.toContain("initial");
+    expect(json).not.toContain("initialTiebreakers");
   });
 
   it("is signed out, without loading teams, when there is no session", async () => {
