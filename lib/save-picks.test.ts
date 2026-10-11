@@ -152,6 +152,13 @@ describe("messageForError", () => {
     expect(message).toContain("from Sun, Oct 11 at 12:00 AM ET until Sat, Oct 17 at 12:00 PM ET");
   });
 
+  it("maps the real 403 bodies captured from the local stack (a closed window, and a year with no season)", () => {
+    const closed = JSON.parse('{"error":"outside-edit-window","editOpensAt":"2099-01-01T05:00:00.000Z","editClosesAt":"2099-01-02T05:00:00.000Z"}');
+    const noSeason = JSON.parse('{"error":"outside-edit-window","editOpensAt":null,"editClosesAt":null}');
+    expect(messageForError(403, closed, 2099).message).toContain("from Thu, Jan 1 at 12:00 AM ET until Fri, Jan 2 at 12:00 AM ET");
+    expect(messageForError(403, noSeason, 2087).message).toMatch(/isn't open for this season/);
+  });
+
   it("names the year when the submission is missing", () => {
     expect(messageForError(404, { error: "submission-not-found" }, 2031).message).toContain("2031");
   });
