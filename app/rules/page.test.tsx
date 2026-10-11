@@ -22,7 +22,7 @@ describe("RulesPage", () => {
     expect(container).not.toHaveTextContent("$");
   });
 
-  it("states the Power Four and G6 requirement", () => {
+  it("mentions Power Four and G6", () => {
     const { container } = render(<RulesPage />);
 
     expect(container).toHaveTextContent(/Power Four/);
