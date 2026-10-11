@@ -13,7 +13,15 @@ export default async function MyPicksSection({ year }: { year: number }) {
   switch (result.kind) {
     case "ok":
       // null = editing allowed; PR 19 replaces it with the loader's value (window gating is its job).
-      return <PicksPanel view={result.view} teams={result.teams} editDisabledReason={null} />;
+      return (
+        <PicksPanel
+          view={result.view}
+          teams={result.teams}
+          editDisabledReason={null}
+          year={year}
+          initialTop12={result.initialTop12}
+        />
+      );
     case "signed-out":
       // A plain anchor (full page load) so the new session is picked up after login.
       return (

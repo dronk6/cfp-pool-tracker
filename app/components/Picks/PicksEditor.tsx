@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useReducer, useRef } from "react";
+import { useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import {
   championChoices,
   draftFromView,
@@ -11,6 +11,8 @@ import {
   teamLabel,
   type PicksDraft,
 } from "../../../lib/edit-picks";
+import { describeViolations } from "../../../lib/violation-display";
+import type { SaveOutcome } from "../../../lib/save-picks";
 import { PLAYOFF_SIZE, type PicksView, type TeamChoice, type TeamOption } from "../../../lib/picks-view";
 import TeamLogo from "../TeamLogo/TeamLogo";
 import styles from "./PicksEditor.module.css";
@@ -22,9 +24,23 @@ type Props = {
   view: PicksView;
   teams: readonly TeamOption[];
   onCancel: () => void;
-  /** Receives the draft. Without it, Save is disabled (saving arrives with PR 18). */
-  onSave?: (draft: PicksDraft) => void;
+  /**
+   * Validates and saves the draft. The editor shows any `invalid` or `failed`
+   * outcome; on `saved` it does nothing, because the parent unmounts it.
+   * Without it, Save is disabled.
+   */
+  onSave?: (draft: PicksDraft) => Promise<SaveOutcome>;
 };
+
+/** What the summary above the buttons shows. A fresh object per save, so the same problem refocuses it. */
+type SaveStatus =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "problems"; lines: string[] }
+  | { kind: "error"; message: string; loginLink: boolean };
+
+const IDLE: SaveStatus = { kind: "idle" };
+const UNEXPECTED_FAILURE = "Something went wrong saving your picks. Try again or reload to check.";
 
 type State = {
   draft: PicksDraft;
@@ -62,11 +78,41 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
   }));
   const hintPrefix = useId();
   const formRef = useRef<HTMLFormElement>(null);
+  const [status, setStatus] = useState<SaveStatus>(IDLE);
+  // Set synchronously: state updates are async, so a fast second click would still see "idle".
+  const saveInFlight = useRef(false);
+  const summaryRef = useRef<HTMLElement>(null);
+  const summaryId = useId();
   const logosById = useMemo(() => new Map(teams.map((team) => [team.id, team.imageUrl])), [teams]);
 
   // Entering edit mode swaps the page content, so move focus into it.
   useEffect(() => formRef.current?.focus(), []);
 
+  // Move focus to the problems so keyboard and screen-reader users land on them.
+  useEffect(() => {
+    if (status.kind === "problems" || status.kind === "error") summaryRef.current?.focus();
+  }, [status]);
+
+  async function handleSave() {
+    if (!onSave || saveInFlight.current) return;
+    saveInFlight.current = true;
+    setStatus({ kind: "saving" });
+    let outcome: SaveOutcome;
+    try {
+      outcome = await onSave(draft);
+    } catch {
+      outcome = { kind: "failed", message: UNEXPECTED_FAILURE };
+    }
+    saveInFlight.current = false;
+    if (outcome.kind === "saved") return;
+    setStatus(
+      outcome.kind === "invalid"
+        ? { kind: "problems", lines: describeViolations(outcome.violations, draft) }
+        : { kind: "error", message: outcome.message, loginLink: outcome.loginLink === true },
+    );
+  }
+
+  const saving = status.kind === "saving";
   const duplicates = duplicateSlots(draft);
   const championOptions: TeamChoice[] = championChoices(draft).map((id) => ({ id, name: teamLabel(teams, id) }));
 
@@ -131,17 +177,56 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
           {Array.from({ length: draft.tiebreakers.length }, (_, i) => renderSlot(PLAYOFF_SIZE + i + 1))}
         </ol>
       </section>
+      {(status.kind === "problems" || status.kind === "error") && (
+        <section
+          ref={summaryRef}
+          tabIndex={-1}
+          className={styles.summary}
+          aria-labelledby={status.kind === "problems" ? `${summaryId}-title` : `${summaryId}-title ${summaryId}-text`}
+        >
+          {status.kind === "problems" ? (
+            <>
+              <h2 id={`${summaryId}-title`}>Fix these before saving</h2>
+              <ul>
+                {status.lines.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <>
+              <h2 id={`${summaryId}-title`}>Your picks weren&apos;t saved</h2>
+              <p id={`${summaryId}-text`}>{status.message}</p>
+              {status.loginLink && (
+                // A plain anchor (full page load) so the new session is picked up after login.
+                <p>
+                  <a href="/login">Log in</a>
+                </p>
+              )}
+            </>
+          )}
+        </section>
+      )}
+      {/* aria-disabled, not disabled: a focused disabled button would drop focus mid-save. */}
       <div className={styles.actions}>
-        <button type="button" className={styles.button} onClick={onCancel}>
+        <button
+          type="button"
+          className={styles.button}
+          aria-disabled={saving ? "true" : undefined}
+          onClick={() => {
+            if (!saving) onCancel();
+          }}
+        >
           Cancel
         </button>
         <button
           type="button"
           className={styles.button}
           disabled={!onSave}
-          onClick={() => onSave?.(draft)}
+          aria-disabled={saving ? "true" : undefined}
+          onClick={handleSave}
         >
-          Save
+          {saving ? "Saving…" : "Save"}
         </button>
       </div>
     </form>
