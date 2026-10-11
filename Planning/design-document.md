@@ -651,6 +651,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - User Story: As a user, I would like to view my submitted picks.
   - Requirements:
     - "My Picks" page shows picks with "Playoff" (1-12) and "First Three Out (Tiebreakers)" (13-15) subtitles, plus the champion once chosen.
+    - Each team shows its logo next to its name, without slowing the page (small fixed-size image, no layout shift, a plain placeholder when the logo is missing or fails to load).
     - Loading and error states are handled.
   - Notes:
     - See the My Picks wireframe (`my-picks-mock.png`).
@@ -666,6 +667,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Edit state is local until saved.
   - Notes:
     - Nice-to-haves (autocomplete dropdown, showing the previous team in each slot) are deferred until after pre-launch verification.
+    - Reuse `TeamLogo` (`app/components/TeamLogo`) and `PicksList` from PR 16 if the edit view shows logos; it only renders ESPN logo URLs (`lib/team-logo.ts`).
   - Blockers/Open Questions:
     - Depends on PR 16.
 
@@ -749,7 +751,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 23: Write the README "Admin Responsibilities" section
   - User Story: As Tyler or the maintainer, I would like clear admin instructions so I can run the pool next season.
   - Requirements:
-    - Documents unpausing Supabase before each season, reseeding `teams`, adding the `seasons` row, and seeding participants.
+    - Documents unpausing Supabase before each season, reseeding `teams`, adding the `seasons` row, seeding participants, and bumping `CURRENT_SEASON_YEAR` (`lib/seasons/current-season.ts`).
     - Documents how Tyler views all submissions: the `all_submissions` SQL view in the Supabase dashboard (see [Decisions](#decisions-from-design-review)).
   - Notes:
     - None.
@@ -794,7 +796,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 
 #### Follow-ups (after Milestone 10)
 
-Nice-to-haves from the My Picks section, to be ticketed only if time permits: team autocomplete dropdown, showing the previous team in each slot, "Are you sure?" on cancel, change-summary popup on save, side-by-side before/after view, conference labels/logos.
+Nice-to-haves from the My Picks section, to be ticketed only if time permits: team autocomplete dropdown, showing the previous team in each slot, "Are you sure?" on cancel, change-summary popup on save, side-by-side before/after view, conference labels, logos in the edit view and its team selectors (the My Picks list already shows logos, PR 16).
 
 Hardening, also only if time permits:
 
@@ -834,6 +836,12 @@ Hardening, also only if time permits:
   - **Shape checks only:** the body must be exactly `{currentPlayoff, currentTiebreakers, championId}`; any other key (`userId`, `user_id`, `initialPlayoff`, `year`, ...) is a 400. `currentPlayoff` has exactly 12 entries and `currentTiebreakers` exactly 3, and every entry and `championId` (required, not null) is an integer from 1 to 2147483647. A champion that isn't a team (Postgres 23503) is also a 400 `invalid-body`. This is a small, deliberate addition to "the API does not re-validate pick contents": it keeps junk and user-identifying fields out of the write without duplicating the pool's rules.
   - **Statuses:** 403 `outside-edit-window` (also when the year has no `seasons` row) and 415 `unsupported-media-type` for a non-JSON content type. Checks run in order: year, session, content type, body, window, write, so a signed-out caller learns nothing about the body rules.
   - **No CSRF token:** session cookies are `SameSite=Lax`, `PUT` can't come from an HTML form, and requiring `application/json` forces a CORS preflight that the API never approves. Consistent with the logout decision.
+- **My Picks display (PR 16):**
+  - **Season year:** one constant, `CURRENT_SEASON_YEAR = 2026` in `lib/seasons/current-season.ts`, bumped by hand each season (a README admin step). PRs 17-19 reuse it. The calendar year breaks for a season that spans New Year, and "newest `seasons` row" would flip the page as soon as next year's row is added, before picks are seeded.
+  - **Content:** names plus logos (see below), headings "Playoff" (1-12) and "First Three Out (Tiebreakers)" (13-15), and a "Champion" line shown only when one is set. The ticket's wording wins over the wireframe, which also shows the Edit button at the bottom; PR 17 adds it top right, as the ticket says. No Edit button in this PR.
+  - **Structure:** the page is a static shell and the picks load per request inside `<Suspense>`. `loadMyPicks` reads `getSessionSubmission` then `getTeams` one after the other (never in parallel, so two token refreshes can't race), and a presentational `PicksList` renders the result. The server passes only team names and logo URLs down: no user id, email, timestamps or initial picks. Nothing on this path is cached.
+  - **States:** inline messages, never `redirect()` or `notFound()` (a page redirect could loop with the proxy's redirects). Signed out (or the session check fails) shows a "Log in" link as a plain anchor; no row for the year says so and points to Tyler; an unexpected error shows a generic alert and logs only the error name; a team id missing from `teams` shows as "Unknown team (#id)".
+  - **Logos are in scope for the list view:** each row shows the team's `image_url` in a fixed 32px box beside the name, with an empty `alt` (the name is adjacent text). The ESPN originals are 500px PNGs of 30-80 KB, so they go through `next/image`, which serves about 1.5-3 KB at the size shown; plain `<img>` would download all 15 originals (around 600 KB). `images.remotePatterns` allows only `https://a.espncdn.com/i/teamlogos/ncaa/500/*.png`, the only host and path in the seed CSV, and the page renders an `image_url` only if it matches that same allowlist. The box is always rendered, so a missing or failed logo leaves a plain placeholder with no layout shift. Covering the browser's broken-image icon is best effort (CSS `::after`, checked by hand in Chromium; Safari may still show it). The first 8 rows load eagerly and the rest lazily; the text never waits for images. `TeamLogo` is reusable for PR 17's edit view. The edit view and the team selectors remain open (Follow-ups).
 - **Code length:** production sends 8-digit codes (Supabase's default) and the local stack matches. The verify route doesn't assume a length.
 
 ## Open Questions
