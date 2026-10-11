@@ -42,7 +42,7 @@ Example: say I have Michigan and they SUCK (as expected). I can drop them comple
 ### An update is valid only if
 
 1. You have 12 different teams in your top 12 and 3 different teams in your first 3 out, with no overlap.
-2. Your top 12 includes at least one team from each Power Four conference (ACC, Big Ten, Big 12 and SEC) and at least one G6 team.
+2. Your top 12 includes at least one team from each Power Four conference (ACC, Big Ten, Big 12 and SEC) and at least one G6 team. Notre Dame is independent, so it doesn't count toward any Power Four conference.
 3. You have chosen a champion who is in your top 12.
 4. You have used no more than 3 moves compared with your initial picks.
 
