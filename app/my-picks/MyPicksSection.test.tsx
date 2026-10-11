@@ -16,6 +16,7 @@ describe("MyPicksSection", () => {
   it("loads the year it is given and renders the picks", async () => {
     loadMyPicks.mockResolvedValue({
       kind: "ok",
+      editDisabledReason: null,
       view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
     });
 
