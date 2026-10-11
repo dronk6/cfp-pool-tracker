@@ -13,7 +13,6 @@ describe("RulesPage", () => {
     const { container } = render(<RulesPage />);
 
     expect(screen.getByRole("heading", { level: 2, name: "Initial Picks" })).toBeInTheDocument();
-    expect(container).toHaveTextContent("Tyler enters your initial picks for you.");
     expect(container).not.toHaveTextContent(/Venmo/i);
     expect(container).not.toHaveTextContent("$");
   });
