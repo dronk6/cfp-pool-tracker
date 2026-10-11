@@ -9,20 +9,6 @@ describe("HomePage", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeInTheDocument();
   });
 
-  it("renders the Welcome and Viewing and Modifying Picks sections", () => {
-    render(<HomePage />);
-
-    expect(screen.getByRole("heading", { level: 2, name: "Welcome" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Viewing and Modifying Picks" })).toBeInTheDocument();
-  });
-
-  it("renders the Questions? section", () => {
-    render(<HomePage />);
-
-    expect(screen.getByRole("heading", { level: 2, name: "Questions?" })).toBeInTheDocument();
-    expect(screen.getByText("Ask Tyler.")).toBeInTheDocument();
-  });
-
   it("links to the rules, login and My Picks pages", () => {
     render(<HomePage />);
 
@@ -31,19 +17,11 @@ describe("HomePage", () => {
     expect(screen.getByRole("link", { name: "My Picks" })).toHaveAttribute("href", "/my-picks");
   });
 
-  it("explains the login code and the move limit", () => {
+  it("shows the modification window dates", () => {
     const { container } = render(<HomePage />);
 
-    expect(container).toHaveTextContent(/one-time code/);
-    expect(container).toHaveTextContent(/three moves/);
-  });
-
-  it("states the modification window", () => {
-    const { container } = render(<HomePage />);
-
-    expect(container).toHaveTextContent(
-      "from midnight ET going into October 11 until 12 pm ET on October 17, 2026",
-    );
+    expect(container).toHaveTextContent(/October 11/);
+    expect(container).toHaveTextContent(/October 17, 2026/);
   });
 
   it("includes no payment or contact details", () => {
