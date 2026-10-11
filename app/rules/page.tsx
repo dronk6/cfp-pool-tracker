@@ -10,7 +10,7 @@ export default function RulesPage() {
         <h2>Initial Picks</h2>
         <p>
           Before the first kickoff of the season (12 pm kickoff on the opening Saturday), Tyler needs your 12 playoff
-          teams, ranked by seed, plus your first 3 out (seeds 13-15), in order. Tyler enters your initial picks for you.
+          teams, ranked by seed, plus your first 3 out (seeds 13-15), in order.
         </p>
         <ul>
           <li>
@@ -36,12 +36,11 @@ export default function RulesPage() {
         <h2>Week 6/7 Adjustment</h2>
         <p>
           After week 6 and before week 7, you get to make <strong>3 moves</strong> to your top 12 and you must pick a
-          national champion. The pool site shows the exact window for the season. Picks can be edited on the site during
-          that window; nobody has to text Tyler.
+          national champion. Picks can be edited on the site during that window.
         </p>
         <p>
           You can save as many times as you like inside the window. Your moves are always counted against your{" "}
-          <strong>initial</strong> picks, not your last save.
+          initial picks, not your last save.
         </p>
 
         <h3>What counts as a move (top 12 only)</h3>
