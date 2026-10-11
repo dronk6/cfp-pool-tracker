@@ -12,7 +12,7 @@ export default function HomePage() {
           Welcome to the CFP Pool Tracker, the home of Tyler&apos;s College Football Playoff picks pool. Before the
           season, everyone picks the 12 teams they think will make the playoff, in seed order, plus three first-out
           teams as tiebreakers. This site lets you view your picks and, during a short window in October, adjust them
-          and choose your national champion. No more texting Tyler. See the <Link href="/rules">Rules</Link> for how
+          and choose your national champion. See the <Link href="/rules">Rules</Link> for how
           scoring and adjustments work.
         </p>
       </section>
@@ -27,7 +27,7 @@ export default function HomePage() {
         {/* The window below is specific to the 2026 season; update it each year. */}
         <p>
           Picks can be modified from midnight ET going into October 11 until 12 pm ET on October 17, 2026 (between weeks
-          6 and 7 of the season). During that window, press Edit on My Picks to make up to three moves to your top 12
+          6 and 7 of the season). During that window, press the Edit button on My Picks to make up to three moves to your top 12
           and choose your champion. The site checks your update against the rules and tells you what to fix; if an
           update isn&apos;t valid, your previous picks stay in place. Outside the window, your picks are view-only.
         </p>
