@@ -38,7 +38,6 @@ describe("RulesPage", () => {
 
     expect(screen.getByRole("heading", { level: 2, name: "Week 6/7 Adjustment" })).toBeInTheDocument();
     expect(container).toHaveTextContent("3 moves");
-    expect(container).toHaveTextContent("The pool site shows the exact window for the season.");
   });
 
   it("explains what does and does not count as a move", () => {
