@@ -1,13 +1,13 @@
 import { unstable_rethrow } from "next/navigation";
 import { now } from "../../lib/clock";
-import { buildPicksView, type PicksView } from "../../lib/picks-view";
+import { buildPicksView, toTeamOptions, type PicksView, type TeamOption } from "../../lib/picks-view";
 import { buildEditDisabledReason, lookupFailedReason } from "../../lib/seasons/edit-access";
 import { getSeason } from "../../lib/seasons/get-season";
 import { getSessionSubmission } from "../../lib/submissions/submission";
 import { getTeams } from "../../lib/teams";
 
 export type MyPicksResult =
-  | { kind: "ok"; view: PicksView; editDisabledReason: string | null }
+  | { kind: "ok"; view: PicksView; teams: TeamOption[]; editDisabledReason: string | null }
   | { kind: "signed-out" }
   | { kind: "no-submission" }
   | { kind: "error" };
@@ -16,8 +16,9 @@ export type MyPicksResult =
  * Loads the session user's picks for `year`. Submission first, then teams, one
  * after the other so two token refreshes never race, and teams are skipped when
  * there is nothing to show. A failed session check counts as signed out
- * (fail closed). Only `view` and the edit-window message leave this function:
- * no user id, email, initial picks or window timestamps.
+ * (fail closed). Only `view`, the id/name/logo `teams` and the edit-window
+ * message leave this function: no user id, email, initial picks or window
+ * timestamps.
  */
 export async function loadMyPicks(year: number): Promise<MyPicksResult> {
   try {
@@ -31,6 +32,7 @@ export async function loadMyPicks(year: number): Promise<MyPicksResult> {
     return {
       kind: "ok",
       view: buildPicksView(session.submission, teams.teams),
+      teams: toTeamOptions(teams.teams),
       editDisabledReason: await loadEditDisabledReason(year),
     };
   } catch (error) {
