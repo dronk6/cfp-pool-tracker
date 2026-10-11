@@ -1,4 +1,7 @@
+/* Always the light theme's --nav-background, even in dark mode: logos are designed for
+   light backgrounds and lose contrast on the dark one. */
 .logo {
+  --logo-background: #f2f2f7;
   position: relative;
   flex: none;
   display: inline-block;
@@ -6,7 +9,7 @@
   height: 2rem;
   border-radius: 0.375rem;
   overflow: hidden;
-  background: var(--nav-background);
+  background: var(--logo-background);
 }
 
 .image {
@@ -26,5 +29,5 @@
   content: "";
   position: absolute;
   inset: -4px;
-  background: var(--nav-background);
+  background: var(--logo-background);
 }
