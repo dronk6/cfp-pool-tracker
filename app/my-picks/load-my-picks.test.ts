@@ -50,14 +50,18 @@ describe("loadMyPicks", () => {
     }
   });
 
-  it("exposes nothing but the view: no initial picks or timestamps", async () => {
+  it("sends the user's own initial top 12 ids, but no initial tiebreakers or timestamps", async () => {
     getSessionSubmission.mockResolvedValue({ signedIn: true, submission });
     getTeams.mockResolvedValue({ signedIn: true, teams });
 
-    const json = JSON.stringify(await loadMyPicks(2026));
+    const result = await loadMyPicks(2026);
 
-    expect(json).not.toContain("99");
+    expect(result.kind === "ok" && result.initialTop12).toEqual(submission.initialPlayoff);
+    const json = JSON.stringify(result);
+    expect(json).not.toContain("initialTiebreakers");
+    expect(json).not.toContain("87");
     expect(json).not.toContain("submittedAt");
+    expect(json).not.toContain("updatedAt");
     expect(json).not.toContain("2026-01-01");
   });
 

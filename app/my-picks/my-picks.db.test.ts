@@ -139,6 +139,10 @@ describe.skipIf(!runDbTests)("My Picks data against the local stack", () => {
     for (const id of ids.slice(15, 30)) expect(viewJson).not.toContain(JSON.stringify(teamNames.get(id)));
     expect(json).not.toContain(userA.email);
     expect(json).not.toContain(userA.id);
+    expect(json).not.toContain("initialTiebreakers");
+    // The browser gets only the user's own initial top 12, to count moves against.
+    expect(result.kind === "ok" && result.initialTop12).toEqual(ids.slice(0, 12));
+    for (const id of ids.slice(15, 27)) expect(result.kind === "ok" && result.initialTop12).not.toContain(id);
   });
 
   it("shows user B their own picks, with no champion", async () => {
