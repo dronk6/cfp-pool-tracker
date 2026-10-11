@@ -93,6 +93,13 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
     if (status.kind === "problems" || status.kind === "error") summaryRef.current?.focus();
   }, [status]);
 
+  // Listed slot numbers go stale on any edit, so a validation summary is dropped then.
+  // A server error stays until the next Save, since an edit doesn't change what happened.
+  function edit(action: Action) {
+    if (status.kind === "problems") setStatus(IDLE);
+    dispatch(action);
+  }
+
   async function handleSave() {
     if (!onSave || saveInFlight.current) return;
     saveInFlight.current = true;
@@ -104,7 +111,11 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
       outcome = { kind: "failed", message: UNEXPECTED_FAILURE };
     }
     saveInFlight.current = false;
-    if (outcome.kind === "saved") return;
+    if (outcome.kind === "saved") {
+      // The parent normally unmounts the editor now; if it doesn't, don't leave the fields locked.
+      setStatus(IDLE);
+      return;
+    }
     setStatus(
       outcome.kind === "invalid"
         ? { kind: "problems", lines: describeViolations(outcome.violations, draft) }
@@ -129,7 +140,7 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
             value={teamId}
             teams={teams}
             describedBy={others ? hintId : undefined}
-            onChange={(id) => dispatch({ type: "slot", slot, teamId: id })}
+            onChange={(id) => edit({ type: "slot", slot, teamId: id })}
           />
           {others && (
             <span id={hintId} className={styles.hint}>
@@ -149,45 +160,51 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
       className={styles.editor}
       onSubmit={(event) => event.preventDefault()}
     >
-      <div className={styles.championRow}>
-        <span className={styles.championLabel} aria-hidden="true">
-          Champion
-        </span>
-        <TeamSelect
-          label="Champion"
-          placeholder="Choose a champion"
-          value={draft.championId}
-          teams={championOptions}
-          onChange={(teamId) => dispatch({ type: "champion", teamId })}
-        />
-      </div>
-      <p role="status" className={styles.notice}>
-        {clearedChampionId !== null &&
-          `Champion cleared: ${teamLabel(teams, clearedChampionId)} is no longer in your top 12.`}
-      </p>
-      <section>
-        <h2>{PLAYOFF_HEADING}</h2>
-        <ol className={styles.list}>
-          {Array.from({ length: PLAYOFF_SIZE }, (_, i) => renderSlot(i + 1))}
-        </ol>
-      </section>
-      <section>
-        <h2>{TIEBREAKERS_HEADING}</h2>
-        <ol className={styles.list} start={PLAYOFF_SIZE + 1}>
-          {Array.from({ length: draft.tiebreakers.length }, (_, i) => renderSlot(PLAYOFF_SIZE + i + 1))}
-        </ol>
-      </section>
+      {/* Edits during a request would be silently lost when the save succeeds. */}
+      <fieldset className={styles.fields} disabled={saving}>
+        <div className={styles.championRow}>
+          <span className={styles.championLabel} aria-hidden="true">
+            Champion
+          </span>
+          <TeamSelect
+            label="Champion"
+            placeholder="Choose a champion"
+            value={draft.championId}
+            teams={championOptions}
+            onChange={(teamId) => edit({ type: "champion", teamId })}
+          />
+        </div>
+        <p role="status" className={styles.notice}>
+          {saving
+            ? "Saving your picks…"
+            : clearedChampionId !== null &&
+              `Champion cleared: ${teamLabel(teams, clearedChampionId)} is no longer in your top 12.`}
+        </p>
+        <section>
+          <h2>{PLAYOFF_HEADING}</h2>
+          <ol className={styles.list}>
+            {Array.from({ length: PLAYOFF_SIZE }, (_, i) => renderSlot(i + 1))}
+          </ol>
+        </section>
+        <section>
+          <h2>{TIEBREAKERS_HEADING}</h2>
+          <ol className={styles.list} start={PLAYOFF_SIZE + 1}>
+            {Array.from({ length: draft.tiebreakers.length }, (_, i) => renderSlot(PLAYOFF_SIZE + i + 1))}
+          </ol>
+        </section>
+      </fieldset>
       {(status.kind === "problems" || status.kind === "error") && (
         <section
           ref={summaryRef}
           tabIndex={-1}
           className={styles.summary}
           aria-labelledby={status.kind === "problems" ? `${summaryId}-title` : `${summaryId}-title ${summaryId}-text`}
+          aria-describedby={status.kind === "problems" ? `${summaryId}-list` : undefined}
         >
           {status.kind === "problems" ? (
             <>
               <h2 id={`${summaryId}-title`}>Fix these before saving</h2>
-              <ul>
+              <ul id={`${summaryId}-list`}>
                 {status.lines.map((line, i) => (
                   <li key={i}>{line}</li>
                 ))}
