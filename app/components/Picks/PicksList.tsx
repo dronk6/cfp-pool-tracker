@@ -3,7 +3,9 @@ import TeamLogo from "../TeamLogo/TeamLogo";
 import styles from "./PicksList.module.css";
 
 // Logos for roughly the first screen load right away; the rest wait to scroll in.
-const EAGER_RANKS = 8;
+export const EAGER_RANKS = 8;
+export const PLAYOFF_HEADING = "Playoff";
+export const TIEBREAKERS_HEADING = "First Three Out (Tiebreakers)";
 
 /**
  * A user's picks: optional champion, the 12 playoff teams, then the first
@@ -21,7 +23,7 @@ export default function PicksList({ view }: { view: PicksView }) {
         </p>
       )}
       <section>
-        <h2>Playoff</h2>
+        <h2>{PLAYOFF_HEADING}</h2>
         <ol className={styles.list}>
           {view.playoff.map((pick) => (
             <li key={pick.rank}>
@@ -32,7 +34,7 @@ export default function PicksList({ view }: { view: PicksView }) {
         </ol>
       </section>
       <section>
-        <h2>First Three Out (Tiebreakers)</h2>
+        <h2>{TIEBREAKERS_HEADING}</h2>
         <ol className={styles.list} start={view.playoff.length + 1}>
           {view.tiebreakers.map((pick) => (
             <li key={pick.rank}>

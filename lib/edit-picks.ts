@@ -1,4 +1,4 @@
-import { PLAYOFF_SIZE, type PicksView } from "./picks-view";
+import { PLAYOFF_SIZE, type PicksView, type TeamOption } from "./picks-view";
 
 export const TIEBREAKER_SIZE = 3;
 export const TOTAL_SLOTS = PLAYOFF_SIZE + TIEBREAKER_SIZE;
@@ -103,4 +103,9 @@ export function duplicateSlots(draft: PicksDraft): Record<number, number[]> {
     for (const slot of slots) result[slot] = slots.filter((other) => other !== slot);
   }
   return result;
+}
+
+/** A team's display name, matching My Picks' wording for an id that isn't in `teams`. */
+export function teamLabel(teams: readonly TeamOption[], teamId: number): string {
+  return teams.find((team) => team.id === teamId)?.name ?? `Unknown team (#${teamId})`;
 }
