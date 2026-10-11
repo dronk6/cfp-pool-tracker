@@ -99,7 +99,7 @@ The email goes to the stack's Mailpit inbox (http://127.0.0.1:54324), not a real
 1. Email: submitting always shows "If that email is registered, a code is on its way." whether or not the email is a participant. Only a malformed email (a 400) or a network failure is reported.
 2. Code: type the emailed code (non-digits are dropped; there is no length limit because the code length is a Supabase setting). A correct code does a full page load of `/my-picks`, so server-rendered parts of the page see the new session. A wrong code shows one message for every failure. "Send a New Code" and "Cancel" are there from the start; "Send a New Code" is disabled for 30 seconds after each request (matching Supabase's per-email interval) with a countdown, and "Cancel" returns to the email step with the email kept.
 
-The flow is a pure reducer (`loginFlow.ts`); `authApi.ts` wraps the two routes above and `navigate.ts` wraps the redirect so tests can replace it. The submit button stays disabled until the page has hydrated so an early native submit can't put the email in the URL. The My Picks page itself does not check the session yet; the proxy is the only gate, so the pages that load picks must check it server-side (`getCurrentUser()`).
+The flow is a pure reducer (`loginFlow.ts`); `authApi.ts` wraps the two routes above and `navigate.ts` wraps the redirect so tests can replace it. The submit button stays disabled until the page has hydrated so an early native submit can't put the email in the URL. The proxy is not the only gate: pages that load picks check the session server-side too (see [My Picks page](#my-picks-page)).
 
 To try it: follow "Trying it locally" above, open http://localhost:3000/login, and read the code from Mailpit.
 
@@ -133,6 +133,12 @@ The edit window is half-open: edits are allowed when `edit_opens_at <= now < edi
 | `GET /api/teams` | `200` with a bare JSON array of every team, ordered by name (the database's ordering; clients that need a specific order should sort themselves): `[{"id":87,"name":"Notre Dame","conference":"FBS Independent","is_power_conf":true,"image_url":"https://..."}, ...]`. Field names are snake_case to match the database and `lib/validation`'s `Team`, so the array can go straight into `validatePicks`. `image_url` is `null` if a team has no logo. An empty `teams` table gives `200 []`. `401 {"error":"unauthenticated"}` without a valid session (a `profiles` row is not required); `500 {"error":"internal"}`. Never cached. |
 
 The lookup lives in `getTeams()` in [lib/teams.ts](./lib/teams.ts). Server components (such as My Picks and the edit view) should call it directly rather than fetch this route. `app/api/teams.db.test.ts` runs the route against the local stack; it reads the seeded teams and never writes to `teams`, so run `npm run seed:teams` first (`RUN_DB_TESTS=1 npx vitest run app/api/teams.db`).
+
+### My Picks page
+
+`/my-picks` shows the signed-in user's current picks for `CURRENT_SEASON_YEAR` ([lib/seasons/current-season.ts](./lib/seasons/current-season.ts)): the champion (once set), the 12 playoff teams, then the first three out, each with its team logo. The page is a static shell; `MyPicksSection` loads the picks per request inside `<Suspense>`, through `loadMyPicks` ([app/my-picks/load-my-picks.ts](./app/my-picks/load-my-picks.ts)), which calls `getSessionSubmission` then `getTeams` and nothing else, so only team names and logo URLs reach the page. It checks the session itself (the proxy is not the only gate) and shows inline messages instead of redirecting: signed out, no picks for the year, or a generic error (only the error name is logged). A pick whose team id isn't in `teams` shows as "Unknown team (#id)".
+
+Logos are the reusable `TeamLogo` ([app/components/TeamLogo](./app/components/TeamLogo)): a fixed 32px box on a light background in both light and dark mode (logos lose contrast on the dark theme's background) that is always rendered, so a missing or failed logo leaves a plain placeholder with no layout shift. Hiding the browser's broken-image icon on a failed load is best effort (CSS `::after`): checked by hand in Chromium; Safari doesn't render `::after` on a failed image and may still show the icon. It renders through `next/image` because ESPN's originals are 500px PNGs and the optimizer serves a few KB at the size shown. Only `https://a.espncdn.com/i/teamlogos/ncaa/500/<id>.png` is allowed, both for `images.remotePatterns` in [next.config.ts](./next.config.ts) and for what the component will render ([lib/team-logo.ts](./lib/team-logo.ts)); a new logo host needs a change in both. `app/my-picks/my-picks.db.test.ts` runs the loader against the local stack (needs seeded teams; never writes to `teams`): `RUN_DB_TESTS=1 npx vitest run app/my-picks/my-picks.db`.
 
 ## Continuous Integration
 
@@ -319,6 +325,7 @@ Do this at least a few days before the edit window opens, so any problem shows u
 1. Reseed `teams` in production from the season's `d1_fbs_college_football_teams.csv` with `npm run seed:teams` (see [Seeding teams](#seeding-teams)).
 2. Add the season's row to `seasons` and load it in production; see [Seasons (edit window)](#seasons-edit-window).
 3. Seed every participant (auth user, `profiles` row, then initial `submissions` row) with `npm run seed:participants`: a dry run, then `--apply --production` (see [Seeding participants](#seeding-participants)). Do it for everyone before announcing the site, so nobody logs in to an empty "My Picks" page.
+4. Bump `CURRENT_SEASON_YEAR` in [lib/seasons/current-season.ts](./lib/seasons/current-season.ts) to the new year and deploy (a one-line code change). My Picks reads that year, so until it is bumped the page keeps showing last season's picks.
 
 ### During the season: view everyone's picks
 
