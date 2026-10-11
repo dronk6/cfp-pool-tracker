@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPicksView } from "./picks-view";
+import { buildPicksView, toTeamOptions } from "./picks-view";
 import type { Submission } from "./submissions/submission";
 import type { Team } from "./teams";
 
@@ -63,5 +63,19 @@ describe("buildPicksView", () => {
 
     expect(view.playoff).toHaveLength(1);
     expect(view.tiebreakers).toEqual([]);
+  });
+});
+
+describe("toTeamOptions", () => {
+  it("keeps only id, name and logo url, in the given order", () => {
+    const options = toTeamOptions([
+      { ...team(2, "B", "https://logo/2.png"), conference: "SEC", is_power_conf: false },
+      team(1, "A"),
+    ]);
+    expect(options).toEqual([
+      { id: 2, name: "B", imageUrl: "https://logo/2.png" },
+      { id: 1, name: "A", imageUrl: null },
+    ]);
+    expect(Object.keys(options[0]).sort()).toEqual(["id", "imageUrl", "name"]);
   });
 });

@@ -131,9 +131,12 @@ describe.skipIf(!runDbTests)("My Picks data against the local stack", () => {
     const { loadMyPicks } = await import("./load-my-picks");
     await signInAs(userA);
 
-    const json = JSON.stringify(await loadMyPicks(YEAR));
+    const result = await loadMyPicks(YEAR);
+    const json = JSON.stringify(result);
 
-    for (const id of ids.slice(15, 30)) expect(json).not.toContain(JSON.stringify(teamNames.get(id)));
+    // The team list for the choosers holds every team, so only the picks view can show whose picks these are.
+    const viewJson = JSON.stringify(result.kind === "ok" ? result.view : result);
+    for (const id of ids.slice(15, 30)) expect(viewJson).not.toContain(JSON.stringify(teamNames.get(id)));
     expect(json).not.toContain(userA.email);
     expect(json).not.toContain(userA.id);
   });

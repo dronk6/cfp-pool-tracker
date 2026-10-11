@@ -668,6 +668,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Notes:
     - Nice-to-haves (autocomplete dropdown, showing the previous team in each slot) are deferred until after pre-launch verification.
     - Reuse `TeamLogo` (`app/components/TeamLogo`) and `PicksList` from PR 16 if the edit view shows logos; it only renders ESPN logo URLs (`lib/team-logo.ts`).
+    - Each slot is a native `<select>` of all teams rather than a text box (see Decisions, "Edit view (PR 17)"); the autocomplete is a follow-up.
   - Blockers/Open Questions:
     - Depends on PR 16.
 
@@ -680,6 +681,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Notes:
     - The change-summary popup is a separate follow-up (nice-to-have).
     - Error codes from `PUT /api/submissions/:year` (PR 15) to handle: `401 unauthenticated`, `403 outside-edit-window` (with `editOpensAt`/`editClosesAt` as ISO strings, or `null` if the year has no season), `404 submission-not-found`, `400 invalid-body` (including a champion that isn't a team), `415 unsupported-media-type` (send `Content-Type: application/json`), `500 internal`. The body must be exactly `{currentPlayoff, currentTiebreakers, championId}`.
+    - PR 17's `TeamOption` is `{id, name, imageUrl}` (`lib/picks-view.ts`), the only team data sent to the browser. Extend it (and `toTeamOptions`) with `conference` and `is_power_conf` when `validatePicks` needs them, and add `year` to `PicksPanel`'s props. The editor's draft (`PicksDraft`, `lib/edit-picks.ts`) already has `validatePicks`' shape; `PicksEditor` takes an optional `onSave(draft)` and keeps Save disabled until you pass one.
   - Blockers/Open Questions:
     - Depends on PRs 9, 15, 17 and 25.
 
@@ -690,8 +692,9 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - Disabled state tells the user when editing opens/closes.
   - Notes:
     - The window comes from `getSeason` added in PR 15 (the same reader the PUT check uses), compared with `isEditWindowOpen(season, now())` and called directly by the page, not from `GET /api/submissions/:year`'s response. In a Server Component, call `now()` after `cookies()` (which `getSeason` does when it creates its client), because Cache Components rejects reading the time before a request read. `getSeason` returns null both when there's no season and when the client isn't signed in (RLS returns no rows), so check the session first; call `now()` only after awaiting `getSeason` (never evaluate it before, e.g. inside a `Promise.all`); render under Suspense. The server check in PR 15 remains the real enforcement.
+    - PR 17 builds the Edit button and `PicksPanel`; PR 19 only passes the reason in (required prop `editDisabledReason: string | null` on `PicksPanel`, `null` = editing allowed, a string disables the button and is shown as the reason). Don't build a second button.
   - Blockers/Open Questions:
-    - Depends on PRs 15 and 16.
+    - Depends on PRs 15, 16 and 17 (PR 17 builds the Edit button).
 
 #### Milestone 8: Static content
 
@@ -796,7 +799,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 
 #### Follow-ups (after Milestone 10)
 
-Nice-to-haves from the My Picks section, to be ticketed only if time permits: team autocomplete dropdown, showing the previous team in each slot, "Are you sure?" on cancel, change-summary popup on save, side-by-side before/after view, conference labels, logos in the edit view and its team selectors (the My Picks list already shows logos, PR 16).
+Nice-to-haves from the My Picks section, to be ticketed only if time permits: team autocomplete dropdown, showing the previous team in each slot, "Are you sure?" on cancel, change-summary popup on save, side-by-side before/after view, conference labels. The autocomplete replaces only `TeamSelect` (library-based; the library choice and dependency approval happen in that ticket). Logos already show beside each slot in the edit view (PR 17).
 
 Hardening, also only if time permits:
 
@@ -842,6 +845,13 @@ Hardening, also only if time permits:
   - **Structure:** the page is a static shell and the picks load per request inside `<Suspense>`. `loadMyPicks` reads `getSessionSubmission` then `getTeams` one after the other (never in parallel, so two token refreshes can't race), and a presentational `PicksList` renders the result. The server passes only team names and logo URLs down: no user id, email, timestamps or initial picks. Nothing on this path is cached.
   - **States:** inline messages, never `redirect()` or `notFound()` (a page redirect could loop with the proxy's redirects). Signed out (or the session check fails) shows a "Log in" link as a plain anchor; no row for the year says so and points to Tyler; an unexpected error shows a generic alert and logs only the error name; a team id missing from `teams` shows as "Unknown team (#id)".
   - **Logos are in scope for the list view:** each row shows the team's `image_url` in a fixed 32px box (always on the light theme's background, since logos lose contrast on the dark one) beside the name, with an empty `alt` (the name is adjacent text). The ESPN originals are 500px PNGs of 30-80 KB, so they go through `next/image`, which serves about 1.5-3 KB at the size shown; plain `<img>` would download all 15 originals (around 600 KB). `images.remotePatterns` allows only `https://a.espncdn.com/i/teamlogos/ncaa/500/*.png`, the only host and path in the seed CSV, and the page renders an `image_url` only if it matches that same allowlist. The box is always rendered, so a missing or failed logo leaves a plain placeholder with no layout shift. Covering the browser's broken-image icon is best effort (CSS `::after`, checked by hand in Chromium; Safari may still show it). The first 8 rows load eagerly and the rest lazily; the text never waits for images. `TeamLogo` is reusable for PR 17's edit view. The edit view and the team selectors remain open (Follow-ups).
+- **Edit view (PR 17):**
+  - **Native select per slot:** each of the 15 slots is a `<select>` of every team (alphabetical, a blank "Choose a team" first that maps to `null`), not a text box. It works on every phone and with every screen reader at no dependency cost. It lives alone in `app/components/Picks/TeamSelect.tsx`, so the autocomplete nice-to-have (a follow-up after PR 18, built with a library; the library choice and dependency approval happen in that ticket) replaces only that file. "Previous team" hints are deferred too. A team id the database no longer lists stays selectable as "Unknown team (#id)" in its own slot only.
+  - **Champion:** a select limited to the distinct teams currently in slots 1-12, in slot order. If a slot change drops the champion from the top 12 it is cleared immediately (in the reducer, not derived), with a polite "Champion cleared: X is no longer in your top 12." note, and is not restored if the team comes back. Moving the champion between slots keeps it. Requiring a champion to save is PR 18's job.
+  - **Duplicates don't block:** a slot whose team is also in another slot (within a list, or top 12 against the First Three Out) shows a plain-text "Also in slot N" hint, linked with `aria-describedby`, not an alert. Violations are reported at save time (PR 18).
+  - **Local state, Save disabled for now:** edits live in `PicksEditor`'s reducer, mounted only in edit mode, so Cancel (no confirmation) discards them and nothing is written. Focus moves into the editor on Edit and back to the Edit button on Cancel. `PicksEditor` takes an optional `onSave(draft: PicksDraft)`; Save is disabled until PR 18 supplies it. The draft pads or trims to 12 and 3 because the database doesn't constrain the array lengths.
+  - **Seam for PR 19:** this PR owns the Edit button. `PicksPanel` props are `{view, teams, editDisabledReason}`, where `editDisabledReason: string | null` is required on purpose (an optional prop would let a dropped pass-through silently enable the button). `null` means editing is allowed; a string disables the button and is shown as the reason. `EditButton` props are `{disabledReason?, onClick}`. A disabled button uses `aria-disabled="true"` (not `disabled`, so it stays focusable), the reason linked by `aria-describedby`, and ignores clicks; `PicksPanel` also refuses to enter edit mode. `MyPicksSection` passes `null` until PR 19 passes the loader's value.
+  - **Data sent to the browser:** `loadMyPicks` returns `teams` as `TeamOption = {id, name, imageUrl}` (`toTeamOptions`) beside the view: no conference, `is_power_conf`, user id, email, timestamps or initial picks. PR 18 extends `TeamOption` when validation needs the other columns.
 - **Code length:** production sends 8-digit codes (Supabase's default) and the local stack matches. The verify route doesn't assume a length.
 
 ## Open Questions
