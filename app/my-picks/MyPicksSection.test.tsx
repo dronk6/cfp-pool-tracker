@@ -18,7 +18,7 @@ describe("MyPicksSection", () => {
     loadMyPicks.mockResolvedValue({
       kind: "ok",
       view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
-      teams: [{ id: 1, name: "Ohio State", imageUrl: null }],
+      teams: [{ id: 1, name: "Ohio State", imageUrl: null, conference: "Big Ten", isPowerConf: true }],
     });
 
     await renderSection(2027);
@@ -32,8 +32,8 @@ describe("MyPicksSection", () => {
       kind: "ok",
       view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
       teams: [
-        { id: 1, name: "Ohio State", imageUrl: null },
-        { id: 2, name: "Oregon", imageUrl: null },
+        { id: 1, name: "Ohio State", imageUrl: null, conference: "Big Ten", isPowerConf: true },
+        { id: 2, name: "Oregon", imageUrl: null, conference: "Big Ten", isPowerConf: true },
       ],
     });
     await renderSection();

@@ -11,7 +11,7 @@ import {
   teamLabel,
   type PicksDraft,
 } from "../../../lib/edit-picks";
-import { PLAYOFF_SIZE, type PicksView, type TeamOption } from "../../../lib/picks-view";
+import { PLAYOFF_SIZE, type PicksView, type TeamChoice, type TeamOption } from "../../../lib/picks-view";
 import TeamLogo from "../TeamLogo/TeamLogo";
 import styles from "./PicksEditor.module.css";
 import { EAGER_RANKS, PLAYOFF_HEADING, TIEBREAKERS_HEADING } from "./PicksList";
@@ -68,11 +68,7 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
   useEffect(() => formRef.current?.focus(), []);
 
   const duplicates = duplicateSlots(draft);
-  const championOptions: TeamOption[] = championChoices(draft).map((id) => ({
-    id,
-    name: teamLabel(teams, id),
-    imageUrl: logosById.get(id) ?? null,
-  }));
+  const championOptions: TeamChoice[] = championChoices(draft).map((id) => ({ id, name: teamLabel(teams, id) }));
 
   function renderSlot(slot: number) {
     const teamId = teamInSlot(draft, slot);

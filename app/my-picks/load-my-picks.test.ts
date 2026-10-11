@@ -61,19 +61,24 @@ describe("loadMyPicks", () => {
     expect(json).not.toContain("2026-01-01");
   });
 
-  it("sends the browser only each team's id, name and logo url", async () => {
+  it("sends the browser only each team's five camelCase keys", async () => {
     getSessionSubmission.mockResolvedValue({ signedIn: true, submission });
     getTeams.mockResolvedValue({ signedIn: true, teams });
 
     const result = await loadMyPicks(2026);
 
     expect(result.kind === "ok" && result.teams).toHaveLength(15);
+    if (result.kind === "ok") {
+      for (const team of result.teams) {
+        expect(Object.keys(team).sort()).toEqual(["conference", "id", "imageUrl", "isPowerConf", "name"]);
+      }
+    }
     const json = JSON.stringify(result);
-    expect(json).not.toContain("conference");
     expect(json).not.toContain("is_power_conf");
+    expect(json).not.toContain("image_url");
     expect(json).not.toContain("userId");
     expect(json).not.toContain("email");
-    expect(json).not.toContain("initial");
+    expect(json).not.toContain("initialTiebreakers");
   });
 
   it("is signed out, without loading teams, when there is no session", async () => {

@@ -8,6 +8,8 @@ const teams: TeamOption[] = Array.from({ length: 16 }, (_, i) => ({
   id: i + 1,
   name: `Team ${String(i + 1).padStart(2, "0")}`,
   imageUrl: null,
+  conference: "X",
+  isPowerConf: true,
 }));
 const pick = (rank: number) => ({ rank, teamId: rank, name: `Team ${String(rank).padStart(2, "0")}`, imageUrl: null });
 const view: PicksView = {
