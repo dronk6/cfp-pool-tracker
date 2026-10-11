@@ -220,7 +220,7 @@ The Gmail app password is not an environment variable; it lives only in the Supa
 
 *Lightweight overview only — method, path, and purpose. Request/response bodies belong in a future, dedicated API contracts doc.*
 
-- `GET /api/teams` — fetch the full reference list of teams (id, name, conference, power-conference flag) used to populate pick selectors and drive validation.
+- `GET /api/teams` — fetch the full reference list of teams (id, name, conference, power-conference flag, image URL) used to populate pick selectors and drive validation. Contract: `200` bare array, ordered by name (the database's ordering; clients that need a specific order should sort themselves), of `{id, name, conference, is_power_conf, image_url}` (snake_case, matching the database and `lib/validation`'s `Team`; `image_url` may be `null`); `401 unauthenticated`; `500 internal`; `Cache-Control: no-store` on every status. Any signed-in user may read it; a `profiles` row is not required.
 - `GET /api/submissions/:year` — fetch the logged-in user's submission for the given year (both their initial and current picks). User is identified via the verified session, not a URL param. Contract: `200` flat camelCase `{year, initialPlayoff, initialTiebreakers, currentPlayoff, currentTiebreakers, championId, submittedAt, updatedAt}` (team ids only, no names, no row or user ids); `400 invalid-year` (year must match `^[1-9]\d{3}$`); `401 unauthenticated`; `404 submission-not-found` (identical whether nobody or only another user has a row); `500 internal`; `Cache-Control: no-store` on every status. The edit window is not part of the response.
 - `PUT /api/submissions/:year` — update the logged-in user's existing submission for the given year (the week 6/7 revision window). The server enforces only: (1) a valid session, (2) the row being written belongs to the session user (ID from the session, never the request), and (3) the current server time is inside the edit window from the `seasons` table (otherwise reject with a clear error). It does **not** re-validate pick contents (counts, G6, move limit, champion) — the client does that, and the API trusts it (see [Decisions](#decisions-from-design-review)); it does check the body's shape (see the PR 15 decision). Contract: body `{currentPlayoff, currentTiebreakers, championId}` and nothing else; `200` the full submission in `GET`'s shape; `400 invalid-year`; `401 unauthenticated`; `415 unsupported-media-type`; `400 invalid-body`; `403 outside-edit-window` with `editOpensAt`/`editClosesAt` (ISO, or `null` if the year has no `seasons` row); `404 submission-not-found`; `500 internal`; `Cache-Control: no-store` on every status. On success it overwrites `current_playoff`, `current_tiebreakers`, `champion_id` and sets `updated_at`; `initial_*` are never modified. There is no user-facing "create" endpoint: per Scope, self-service initial submission isn't supported this season (it's a Low Priority roadmap item) — initial picks are collected by Tyler out-of-band and seeded directly, the same way participant accounts are seeded (see [otp-authentication-plan.md](./otp-authentication-plan.md)).
 - `GET /api/me` — profile info for the logged-in user (name, email), per [session-management-plan.md](./session-management-plan.md).
@@ -287,6 +287,8 @@ seasons (
 ```
 
 The UI's Edit button reads the same window (via the server) so the button and the server check cannot disagree.
+
+**`all_submissions`** (a view, not a table) — a wide, readable copy of `submissions` for Tyler, with one row per participant per year and team names instead of ids: `year, name, email, initial_1..initial_15, current_1..current_15, champion, submitted_at, updated_at`. It is created `with (security_invoker = true)` and every API role is revoked from it, so only the dashboard and the secret key can read it. See PR 24 and [Decisions](#decisions-from-design-review).
 
 **Migrations.** The schema is managed with the Supabase CLI (an npm devDependency): migrations live in `supabase/migrations/`, are developed against the CLI's local stack (`supabase start`, which needs Docker Desktop), and are applied to production with `supabase link` + `supabase db push` (Task M5). A migration is verified by `supabase db reset` applying cleanly on the local stack; there is no separate CI job or SQL test suite for the schema (see [Decisions](#decisions-from-design-review)).
 
@@ -603,10 +605,11 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 13: Add `GET /api/teams`
   - User Story: As a user, I would like a list of teams to choose from when editing picks.
   - Requirements:
-    - Returns id, name, conference and power-conference flag for every team.
+    - Returns id, name, conference, power-conference flag and image URL for every team.
     - Requires a valid session.
   - Notes:
     - Database access uses the server-side Supabase client only.
+    - Server components (PRs 16 and 17) read the list through `getTeams()` in `lib/teams.ts` directly instead of fetching this route.
   - Blockers/Open Questions:
     - Depends on PRs 6 and 12, and M6.
 
@@ -754,11 +757,13 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 24: Add a readable `all_submissions` view for Tyler
   - User Story: As Tyler, I would like to see every participant's initial and current picks with team names so I can verify updates without an admin page.
   - Requirements:
-    - A migration creates a Postgres view `all_submissions` joining `submissions`, `profiles` and `teams`, showing per participant: name, email, initial and current picks as ordered team names (1-15), the champion's name, `submitted_at` and `updated_at`.
+    - A migration creates a Postgres view `all_submissions` joining `submissions`, `profiles` and `teams`, showing per participant: year, name, email, initial and current picks as ordered team names (1-15), the champion's name, `submitted_at` and `updated_at`.
     - The README explains how Tyler uses the view.
   - Notes:
     - Postgres arrays lose ordering guarantees in a plain join, so unnest `WITH ORDINALITY` to keep pick order.
-    - The view contains participants' emails, so access should be limited to Tyler and the maintainer. A view runs with its owner's rights and bypasses RLS, and Supabase exposes `public` through its API, so revoke all access to the view from `anon` and `authenticated` (Tyler reads it in the dashboard).
+    - The layout is wide: columns `year, name, email, initial_1..initial_15, current_1..current_15, champion, submitted_at, updated_at` (slots 13-15 are First Three Out), ordered by `year desc, name`. A team id missing from `teams` shows as `Unknown team <id>`; the champion is a left join, so it is null until the first revision.
+    - The view contains participants' emails, so access is limited to Tyler and the maintainer. It lives in `public`, is created `with (security_invoker = true)` (so a role that is ever re-granted access sees only what RLS allows it, rather than everyone's rows as a default owner-rights view would), and the same migration revokes all access from `public`, `anon` and `authenticated`, because Supabase's default privileges would otherwise expose it through the API. `service_role` and `postgres` keep access. Tyler reads it in the dashboard.
+    - Tested by `supabase/all-submissions.db.test.ts` (opt-in DB tests): row contents and ordering, and a permission error (42501) for anonymous and signed-in requests.
   - Blockers/Open Questions:
     - Depends on PRs 5 and 6.
 
@@ -767,9 +772,12 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - The PR 24 migration is applied to the production Supabase project.
     - The view is saved in the Supabase dashboard so Tyler can open it in the table editor without writing SQL.
     - Tyler has a Supabase dashboard login with the least access that lets him read the view.
+    - Confirm, logged in as Tyler, that he actually sees rows in `all_submissions`: the view runs with the caller's rights, so his dashboard role must bypass RLS to see anyone's picks.
   - Blockers/Open Questions:
     - Depends on PR 24 and M5.
     - Tyler needs to be added to the Supabase project; confirm he's comfortable with that.
+    - UNVERIFIED: the dashboard's "Read-only" member role is believed to connect as a database role that bypasses RLS (locally, `supabase_read_only_user` has `rolbypassrls = true`). Confirm in production that Tyler sees rows.
+    - UNVERIFIED: a Read-only member can probably also read every other table, including `auth.users`, so Tyler's access is wider than just the view. Confirm, and decide whether that is acceptable.
 
 - Task M12: Production dry run #manual
   - Requirements:
@@ -815,6 +823,8 @@ Hardening, also only if time permits:
 - **Login rate limits don't get their own message:** Supabase's 30-second minimum interval is per email and may apply only to registered addresses, so a distinct "please wait" response could reveal who is registered. The request-code route returns the same generic success for rate-limit errors as for everything else, and the login form disables "Send a New Code" for 30 seconds instead.
 - **Login flow details (PR 11):** "Send a New Code" and "Cancel" appear as soon as the code form does. Gated pages fail closed when the session can't be checked, there is no "return to" parameter, and a successful login does a full page load.
 - **Log out scope (PR 12):** "Log Out" signs the user out of the current device only, so logging out on a laptop doesn't end their phone session. `POST /api/logout` needs no CSRF token: it is POST-only and the session cookies are `SameSite=Lax`, so a cross-site request arrives signed out.
+- **`GET /api/teams` (PR 13):** returns every team as a bare array ordered by name (the database's ordering; clients that need a specific order should sort themselves), with snake_case fields so it feeds `validatePicks` unchanged. `image_url` is included beyond the original field list because the pick selectors will want logos. Any signed-in user can read it (no `profiles` row needed), and RLS only lets `authenticated` read `teams`. Never cached. Server components (PRs 16 and 17) call `getTeams()` directly instead of fetching the route.
+- **`all_submissions` view (PR 24):** the view is in `public`, created `with (security_invoker = true)`, and the same migration revokes all access from `public`, `anon` and `authenticated`. A default view runs as its owner and bypasses RLS, so with `security_invoker` a role that is ever re-granted access sees only its own rows. The explicit revoke is needed because Supabase's default privileges grant new `public` objects to `anon` and `authenticated`. The layout is wide (one column per slot, 15 for initial and 15 for current) with a `year` column, so Tyler can filter and export it as CSV in the table editor. Consequence for M11: Tyler's dashboard role must bypass RLS to see rows.
 - **`GET /api/submissions/:year` (PR 14):** returns only the session user's row, selected by `user_id` from the verified session plus the year, with RLS as a second wall. A year with no row for the caller returns the same 404 whether nobody or only another user has one. The response carries team ids only (`GET /api/teams` is the reference list) and not the edit window; PR 15 adds a server-side season reader that PR 19 calls directly. Server components (PR 16) call `getSessionSubmission` directly instead of fetching the route, per the Next.js guidance to fetch from the source in Server Components.
 - **`PUT /api/submissions/:year` (PR 15):**
   - **Window boundaries:** half-open. Edits are allowed iff `edit_opens_at <= now < edit_closes_at`, so the closing instant is closed and back-to-back windows can't overlap.
