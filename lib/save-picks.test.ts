@@ -147,6 +147,11 @@ describe("messageForError", () => {
     expect(message).toMatch(/isn't open for this season/);
   });
 
+  it("names the window in Eastern time for a 403, from the server's ISO times", () => {
+    const { message } = messageForError(403, { error: "outside-edit-window", editOpensAt: opens, editClosesAt: closes }, 2026);
+    expect(message).toContain("from Sun, Oct 11 at 12:00 AM ET until Sat, Oct 17 at 12:00 PM ET");
+  });
+
   it("names the year when the submission is missing", () => {
     expect(messageForError(404, { error: "submission-not-found" }, 2031).message).toContain("2031");
   });

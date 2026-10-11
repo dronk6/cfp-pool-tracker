@@ -1,4 +1,5 @@
 import type { PicksDraft } from "./edit-picks";
+import { formatEt } from "./seasons/edit-access";
 import { PLAYOFF_SIZE, toValidationTeams, type CurrentPicks, type TeamOption } from "./picks-view";
 import { validatePicks, type Violation } from "./validation";
 
@@ -52,10 +53,11 @@ export function messageForError(status: number, body: unknown, year: number): Er
     return { message: "You're signed out. Log in again to save. Anything you've changed here will be lost.", loginLink: true };
   }
   if (status === 403) {
-    // TODO(#27): name the window with formatEt(editOpensAt) and formatEt(editClosesAt) once it is on main.
     const { editOpensAt, editClosesAt } = (body ?? {}) as { editOpensAt?: unknown; editClosesAt?: unknown };
     if (typeof editOpensAt === "string" && typeof editClosesAt === "string") {
-      return { message: `Your picks weren't saved. Editing isn't open right now. ${UNCHANGED}` };
+      return {
+        message: `Your picks weren't saved. Editing is open from ${formatEt(editOpensAt)} until ${formatEt(editClosesAt)}. ${UNCHANGED}`,
+      };
     }
     return { message: `Editing isn't open for this season. ${UNCHANGED}` };
   }
