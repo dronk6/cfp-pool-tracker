@@ -17,6 +17,8 @@ describe("MyPicksSection", () => {
   it("loads the year it is given and renders the picks", async () => {
     loadMyPicks.mockResolvedValue({
       kind: "ok",
+      editDisabledReason: null,
+      initialTop12: [1],
       view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
       teams: [{ id: 1, name: "Ohio State", imageUrl: null, conference: "Big Ten", isPowerConf: true }],
     });
@@ -30,6 +32,8 @@ describe("MyPicksSection", () => {
   it("offers an Edit button that opens the editor with the loaded teams", async () => {
     loadMyPicks.mockResolvedValue({
       kind: "ok",
+      editDisabledReason: null,
+      initialTop12: [1],
       view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
       teams: [
         { id: 1, name: "Ohio State", imageUrl: null, conference: "Big Ten", isPowerConf: true },
@@ -42,6 +46,41 @@ describe("MyPicksSection", () => {
 
     expect(screen.getByRole("combobox", { name: "Slot 1" })).toHaveValue("1");
     expect(within(screen.getByRole("combobox", { name: "Slot 1" })).getByRole("option", { name: "Oregon" })).toBeInTheDocument();
+  });
+
+  it("disables the Edit button with the loader's reason, which cannot open the editor", async () => {
+    loadMyPicks.mockResolvedValue({
+      kind: "ok",
+      editDisabledReason: "Editing opens Sun, Oct 11 at 12:00 AM ET.",
+      initialTop12: [1],
+      view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
+      teams: [{ id: 1, name: "Ohio State", imageUrl: null }],
+    });
+    await renderSection();
+
+    const edit = screen.getByRole("button", { name: "Edit" });
+    expect(edit).toHaveAttribute("aria-disabled", "true");
+    expect(edit).toHaveAccessibleDescription("Editing opens Sun, Oct 11 at 12:00 AM ET.");
+    await userEvent.click(edit);
+
+    expect(screen.queryByRole("combobox", { name: "Slot 1" })).not.toBeInTheDocument();
+  });
+
+  it("leaves the Edit button enabled when the loader reports no reason", async () => {
+    loadMyPicks.mockResolvedValue({
+      kind: "ok",
+      editDisabledReason: null,
+      initialTop12: [1],
+      view: { playoff: [{ rank: 1, teamId: 1, name: "Ohio State", imageUrl: null }], tiebreakers: [], champion: null },
+      teams: [{ id: 1, name: "Ohio State", imageUrl: null }],
+    });
+    await renderSection();
+
+    const edit = screen.getByRole("button", { name: "Edit" });
+    expect(edit).not.toHaveAttribute("aria-disabled");
+    await userEvent.click(edit);
+
+    expect(screen.getByRole("combobox", { name: "Slot 1" })).toBeInTheDocument();
   });
 
   it("shows no Edit button when there is nothing to edit", async () => {
