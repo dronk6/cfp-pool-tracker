@@ -99,6 +99,8 @@ In the code handling the "update picks" write, independent of the session check:
 
 This is in addition to, not instead of, disabling the Edit button in the UI during the same window.
 
+*Implemented in `PUT /api/submissions/:year` (PR 15):* the window is half-open (`edit_opens_at <= now < edit_closes_at`), "now" is the server clock (`lib/clock.ts`), and the check runs after the session check and before the write. Rejections are `403 outside-edit-window`. The database does not also enforce the window; that is a listed follow-up.
+
 ### Step 6: Implement logout
 
 ```js
