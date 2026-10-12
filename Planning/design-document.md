@@ -827,14 +827,14 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
   - Requirements:
     - `app/globals.css` defines four brand colors plus one error color as CSS custom properties (`--primary-1` background, `--primary-2` text and outlines, `--accent-1` emphasized text and warnings, `--accent-2` highlights and primary buttons, `--danger` errors only) used throughout the app, with no hard-coded colors left in CSS or TSX. Light: `#F0F0F1`, `#004800`, `#B34A0E`, `#78A8FC`, `#B3123B`. Dark: `#004800`, `#F0F0F1`, `#F59A63`, `#78A8FC`, `#FFB3C1`.
     - Lighter shades are an accent or a CSS function (`color-mix`), never a new hex value. Dark mode keeps following the OS setting.
-    - Usage: outlines use `--primary-2` (or a `color-mix` of it); links, the current nav page and the "Also in slot N" hint use `--accent-1`, in addition to the current underline or marker; dropdown and nav hover use a tint of `--accent-2`; primary buttons use `--accent-2` with a `#004800` label and a `--primary-2` border; error messages use `--danger` and warnings use `--accent-1`, each with a text or icon cue (red and orange are close in lightness); team logos keep a `#F0F0F1` chip in dark mode; every interactive element has a visible `--accent-1` focus indicator.
+    - Usage: outlines use `--primary-2` (or a `color-mix` of it); inline links, the current nav page (bold and underlined; its hover text turns `--primary-2`) and the "Also in slot N" hint use `--accent-1`, in addition to the current underline or marker, while other nav links stay `--primary-2`; nav hover uses a tint of `--accent-2`, and the team dropdown is a native `<select>` whose closed control is fully themed while its open-list highlight is best effort (only where `appearance: base-select` is supported); primary buttons (Save, Send Code, Verify Code, the Log Out confirm) use `--accent-2` with a `#004800` label and a `--primary-2` border; error messages (validation and save-failed summary, login and logout errors, "Couldn't load your picks") use `--danger` and warnings use `--accent-1`, each with an `aria-hidden` text or icon cue (red and orange are close in lightness); team logos keep a `#F0F0F1` chip in dark mode; every interactive element has a visible `--accent-1` focus indicator; `color-scheme: light dark`, `color-mix` scrim and shadow, and a small forced-colors block.
     - Contrast: 4.5:1 for normal text and 3:1 for outlines and the focus indicator, in both modes, checked by a unit test that reads the variables. The one documented exception is `--accent-2` against the light background (2.09:1), which is never the only boundary.
-    - A short theming section in `docs/` and updated tests that assert on hard-coded colors.
+    - A second test fails on any hard-coded color in CSS or TSX (apart from the variable definitions, `--on-accent-2` and the logo chip), and a short theming section in `docs/`.
   - Notes:
     - The first-proposed `#CC510F` and `#5F96F9` failed contrast and were adjusted; a purple fifth color was dropped (1.16:1 against the green). Full contrast figures are in issue #74.
     - Orange is not the only cue for links or errors: underlines and text or icon cues stay.
   - Blockers/Open Questions:
-    - Depends on PR 23 (the docs hub, in PR #73) for the `docs/` section. Do it after Milestone 10.
+    - The code can be built now; only the final docs commit depends on PR 23 (the docs hub, in PR #73). Do it after Milestone 10.
 
 Hardening, also only if time permits:
 
