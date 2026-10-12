@@ -364,7 +364,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     1. A dry run has been completed in production with real participant emails on a mobile browser: log in, view picks, edit, save, log out.
     2. Window boundaries have been tested, including ET vs. UTC handling.
     3. OTP emails are confirmed to arrive reliably (not spam-foldered) for the major email providers participants use.
-    4. The README "Admin Responsibilities" section is written (unpausing Supabase, seeding, adding a `seasons` row).
+    4. The README "Admin Responsibilities" section is written (unpausing Supabase, reseeding teams when they change, adding a `seasons` row, seeding participants, bumping the season year, viewing everyone's picks, the login email sender, and troubleshooting).
     5. A readable SQL view of all submissions (with team names) exists in Supabase, and Tyler has access to it and instructions for using it.
 
 ### Task Breakdown
@@ -754,12 +754,13 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 - PR 23: Write the README "Admin Responsibilities" section
   - User Story: As Tyler or the maintainer, I would like clear admin instructions so I can run the pool next season.
   - Requirements:
-    - Documents unpausing Supabase before each season, reseeding `teams`, adding the `seasons` row, seeding participants, and bumping `CURRENT_SEASON_YEAR` (`lib/seasons/current-season.ts`).
-    - Documents how Tyler views all submissions: the `all_submissions` SQL view in the Supabase dashboard (see [Decisions](#decisions-from-design-review)).
+    - Documents unpausing Supabase before each season, reseeding `teams` when the team list or conferences change (and checking the CSV every season), adding the `seasons` row, seeding participants, and bumping `CURRENT_SEASON_YEAR` (`lib/seasons/current-season.ts`) along with the Home page's edit-window text.
+    - Documents how Tyler views all submissions: the `all_submissions` SQL view in the Supabase dashboard (see [Decisions](#decisions-from-design-review)), including its columns, ordering and security, and the intended steps for giving Tyler access (hedged, see Task M11).
+    - Includes every other detail a maintainer needs: an ordered checklist, the accounts and access required, the Gmail login-email sender (SMTP settings, app password, template, rate limits), applying migrations, the edit-window rules, a pre-announcement verification, and a troubleshooting table. These link to the existing README sections rather than repeating them.
   - Notes:
-    - None.
+    - Scope widened beyond the original two requirements at the maintainer's request ("include all details relevant to a maintainer"). The section keeps its existing heading and three subsections so links to them still work.
   - Blockers/Open Questions:
-    - Depends on PR 24 (the view must exist to be documented).
+    - PR 24 is merged (#57), so the view exists. Task M11 is still open, so Tyler's access steps and role behavior are documented as intended and unverified.
 
 - PR 24: Add a readable `all_submissions` view for Tyler
   - User Story: As Tyler, I would like to see every participant's initial and current picks with team names so I can verify updates without an admin page.
