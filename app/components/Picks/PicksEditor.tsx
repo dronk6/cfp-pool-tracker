@@ -14,6 +14,7 @@ import {
 import { describeViolations } from "../../../lib/violation-display";
 import type { SaveOutcome } from "../../../lib/save-picks";
 import { PLAYOFF_SIZE, type PicksView, type TeamChoice, type TeamOption } from "../../../lib/picks-view";
+import StatusCue from "../StatusCue/StatusCue";
 import TeamLogo from "../TeamLogo/TeamLogo";
 import styles from "./PicksEditor.module.css";
 import { EAGER_RANKS, PLAYOFF_HEADING, TIEBREAKERS_HEADING } from "./PicksList";
@@ -160,6 +161,7 @@ export default function PicksEditor({ view, teams, initialTop12, onCancel, onSav
           )}
           {others && (
             <span id={hintId} className={styles.hint}>
+              <StatusCue kind="warning" />
               {alsoInText(others)}
             </span>
           )}
@@ -219,7 +221,10 @@ export default function PicksEditor({ view, teams, initialTop12, onCancel, onSav
         >
           {status.kind === "problems" ? (
             <>
-              <h2 id={`${summaryId}-title`}>Fix these before saving</h2>
+              <h2 id={`${summaryId}-title`}>
+                <StatusCue kind="error" />
+                Fix these before saving
+              </h2>
               <ul id={`${summaryId}-list`}>
                 {status.lines.map((line, i) => (
                   <li key={i}>{line}</li>
@@ -228,7 +233,10 @@ export default function PicksEditor({ view, teams, initialTop12, onCancel, onSav
             </>
           ) : (
             <>
-              <h2 id={`${summaryId}-title`}>Your picks weren&apos;t saved</h2>
+              <h2 id={`${summaryId}-title`}>
+                <StatusCue kind="error" />
+                Your picks weren&apos;t saved
+              </h2>
               <p id={`${summaryId}-text`}>{status.message}</p>
               {status.loginLink && (
                 // A plain anchor (full page load) so the new session is picked up after login.

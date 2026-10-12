@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
+import StatusCue from "../StatusCue/StatusCue";
 import styles from "./AccountMenu.module.css";
 import { hardNavigate } from "./navigate";
 
@@ -114,6 +115,7 @@ export default function AccountMenu({ name }: { name: string | null }) {
         </div>
         {failed && (
           <p role="alert" className={styles.error}>
+            <StatusCue kind="error" />
             Couldn&apos;t log out. Try again.
           </p>
         )}

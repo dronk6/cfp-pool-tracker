@@ -1,5 +1,7 @@
+import StatusCue from "../components/StatusCue/StatusCue";
 import PicksPanel from "../components/Picks/PicksPanel";
 import { loadMyPicks } from "./load-my-picks";
+import styles from "./page.module.css";
 
 /**
  * The per-request part of the My Picks page. Must render inside <Suspense>:
@@ -31,6 +33,11 @@ export default async function MyPicksSection({ year }: { year: number }) {
     case "no-submission":
       return <p>You don&apos;t have picks for the {year} season. If that&apos;s wrong, contact Tyler.</p>;
     case "error":
-      return <p role="alert">Couldn&apos;t load your picks. Try reloading the page.</p>;
+      return (
+        <p role="alert" className={styles.error}>
+          <StatusCue kind="error" />
+          Couldn&apos;t load your picks. Try reloading the page.
+        </p>
+      );
   }
 }

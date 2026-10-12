@@ -4,6 +4,7 @@ import { useEffect, useReducer, useRef, useSyncExternalStore, type FormEvent } f
 import { requestCode, verifyCode } from "./authApi";
 import { initialState, loginReducer, MESSAGES, resendSecondsLeft } from "./loginFlow";
 import { navigate } from "./navigate";
+import StatusCue from "../StatusCue/StatusCue";
 import styles from "./LoginForm.module.css";
 
 const MY_PICKS_PATH = "/my-picks";
@@ -105,6 +106,7 @@ export default function LoginForm() {
           />
           {state.error && (
             <p role="alert" className={styles.error}>
+              <StatusCue kind="error" />
               {state.error}
             </p>
           )}
@@ -128,6 +130,7 @@ export default function LoginForm() {
           />
           {state.error && (
             <p role="alert" className={styles.error}>
+              <StatusCue kind="error" />
               {state.error}
             </p>
           )}
