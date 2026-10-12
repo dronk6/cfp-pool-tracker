@@ -64,9 +64,14 @@
   margin-top: 0.5rem;
 }
 
+/* display: list-item keeps the number marker, so the row stays inline content rather
+   than flex. The row's line is as tall as the dropdown (2.75rem) so the number centers
+   on it, and the logo and field are top-aligned so a hint below the dropdown can't move
+   them. */
 .slot {
   padding-left: 0.25rem;
   display: list-item;
+  line-height: 2.75rem;
 }
 
 .slot::marker {
@@ -75,13 +80,19 @@
 
 .slotField {
   display: inline-block;
-  vertical-align: middle;
+  vertical-align: top;
   width: calc(100% - 2.75rem);
   margin-left: 0.5rem;
+  line-height: normal;
 }
 
 .slot > * {
-  vertical-align: middle;
+  vertical-align: top;
+}
+
+/* Centers the 2rem logo on the 2.75rem dropdown. */
+.slot > :first-child {
+  margin-top: 0.375rem;
 }
 
 .hint {
