@@ -4,6 +4,9 @@
   --nav-background: #f2f2f7;
   --nav-border: #d4d4d8;
   --nav-hover: #e4e4ea;
+  --confirm: #2e7d32;
+  --confirm-hover: #256428;
+  --confirm-text: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
