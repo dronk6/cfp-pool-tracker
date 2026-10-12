@@ -822,6 +822,20 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
   - Blockers/Open Questions:
     - Depends on PRs 17 and 18 (both merged).
 
+- PR 27: Apply the new light and dark color scheme
+  - User Story: As a user, I would like the site to use one consistent, readable color scheme in both light and dark mode, so I can use it comfortably on any device.
+  - Requirements:
+    - `app/globals.css` defines four colors as CSS custom properties (`--primary-1` background, `--primary-2` text and outlines, `--accent-1` emphasized text, `--accent-2` highlights and primary buttons) used throughout the app, with no hard-coded colors left in CSS or TSX. Light: `#F0F0F1`, `#004800`, `#B34A0E`, `#78A8FC`. Dark: `#004800`, `#F0F0F1`, `#F59A63`, `#78A8FC`.
+    - Lighter shades are an accent or a CSS function (`color-mix`), never a new hex value. Dark mode keeps following the OS setting.
+    - Usage: outlines use `--primary-2` (or a `color-mix` of it); links, the current nav page and the "Also in slot N" hint use `--accent-1`, in addition to the current underline or marker; dropdown and nav hover use a tint of `--accent-2`; primary buttons use `--accent-2` with a `#004800` label and a `--primary-2` border; error and warning messages use `--accent-1` with a non-color cue; team logos keep a `#F0F0F1` chip in dark mode; every interactive element has a visible `--accent-1` focus indicator.
+    - Contrast: 4.5:1 for normal text and 3:1 for outlines and the focus indicator, in both modes, checked by a unit test that reads the variables. The one documented exception is `--accent-2` against the light background (2.09:1), which is never the only boundary.
+    - A short theming section in `docs/` and updated tests that assert on hard-coded colors.
+  - Notes:
+    - The first-proposed `#CC510F` and `#5F96F9` failed contrast and were adjusted; a purple fifth color was dropped (1.16:1 against the green). Full contrast figures are in issue #74.
+    - Orange is not the only cue for links or errors: underlines and text or icon cues stay.
+  - Blockers/Open Questions:
+    - Depends on PR 23 (the docs hub, in PR #73) for the `docs/` section. Do it after Milestone 10.
+
 Hardening, also only if time permits:
 
 - Enforce the edit window in the database (RLS update policy or RPC) as defense in depth. Today only the API checks it, so someone holding the publishable key and their own access token could edit outside the window by calling Supabase directly (they could still change only their own current picks).
