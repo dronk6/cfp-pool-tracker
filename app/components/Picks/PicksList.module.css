@@ -13,11 +13,10 @@
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.5rem;
-  font-weight: 700;
 }
 
 .championLabel {
-  font-weight: 400;
+  font-weight: 700;
 }
 
 /* globals.css zeroes padding, which would hide the list numbers. */

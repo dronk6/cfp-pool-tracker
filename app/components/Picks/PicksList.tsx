@@ -17,7 +17,7 @@ export default function PicksList({ view }: { view: PicksView }) {
     <div className={styles.container}>
       {view.champion && (
         <p className={styles.champion}>
-          <span className={styles.championLabel}>Champion</span>
+          <span className={styles.championLabel}>Champion:</span>
           <TeamLogo imageUrl={view.champion.imageUrl} eager />
           <span>{view.champion.name}</span>
         </p>

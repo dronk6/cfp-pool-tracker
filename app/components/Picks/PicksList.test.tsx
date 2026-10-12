@@ -34,10 +34,10 @@ describe("PicksList", () => {
 
   it("shows the champion only when one is set", () => {
     const { rerender } = render(<PicksList view={view()} />);
-    expect(screen.queryByText("Champion")).not.toBeInTheDocument();
+    expect(screen.queryByText("Champion:")).not.toBeInTheDocument();
 
     rerender(<PicksList view={view({ champion: { teamId: 2, name: "Team 2", imageUrl: null } })} />);
-    expect(screen.getByText("Champion")).toBeInTheDocument();
+    expect(screen.getByText("Champion:")).toBeInTheDocument();
     expect(screen.getAllByText("Team 2")).toHaveLength(2);
   });
 
