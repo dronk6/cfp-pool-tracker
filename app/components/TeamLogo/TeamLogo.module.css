@@ -1,7 +1,7 @@
-/* Always the light theme's --nav-background, even in dark mode: logos are designed for
-   light backgrounds and lose contrast on the dark one. */
+/* Always light (--logo-chip), even in dark mode: logos are designed for light
+   backgrounds and lose contrast on the dark one. */
 .logo {
-  --logo-background: #f2f2f7;
+  --logo-background: var(--logo-chip);
   position: relative;
   flex: none;
   display: inline-block;

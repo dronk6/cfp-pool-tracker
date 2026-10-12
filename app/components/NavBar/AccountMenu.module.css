@@ -29,7 +29,7 @@
   border: 1px solid var(--outline-soft);
   border-radius: 0.5rem;
   background: var(--primary-1);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-2) 25%, transparent);
 }
 
 .popup[hidden] {

@@ -92,7 +92,7 @@
   position: fixed;
   inset: 0;
   z-index: 10;
-  background: rgb(0 0 0 / 0.5);
+  background: color-mix(in srgb, var(--primary-1) 70%, transparent);
   opacity: 0;
   visibility: hidden;
   transition:
