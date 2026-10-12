@@ -180,7 +180,7 @@ export default function PicksEditor({ view, teams, initialTop12, onCancel, onSav
       <fieldset className={styles.fields} disabled={saving}>
         <div className={styles.championRow}>
           <span className={styles.championLabel} aria-hidden="true">
-            Champion
+            Champion:
           </span>
           <TeamSelect
             label="Champion"
@@ -254,7 +254,7 @@ export default function PicksEditor({ view, teams, initialTop12, onCancel, onSav
         </button>
         <button
           type="button"
-          className={styles.button}
+          className={`${styles.button} ${styles.primary}`}
           disabled={!onSave}
           aria-disabled={saving ? "true" : undefined}
           onClick={handleSave}
