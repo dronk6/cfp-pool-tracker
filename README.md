@@ -359,16 +359,16 @@ Do this at least a few days before the edit window opens, so any problem shows u
 5. Confirm sign-in works: go to the deployed site, request a login code for your own participant email, and sign in.
 6. If the codes don't arrive, see [Login email sender](#login-email-sender-gmail-through-supabase) and the [troubleshooting table](#troubleshooting).
 
-Once the project is running again, it stays up for as long as it keeps seeing activity. The pool's heaviest use is the edit window and the weeks after it, so it should not pause again mid-season, but check it before the window opens if there has been a quiet stretch.
+Free projects can pause again after a period of inactivity (Supabase's policy, which may change). Check the project's status before the window opens, and again whenever the site has been quiet for a while.
 
 ### Login email sender (Gmail through Supabase)
 
 Participants sign in with a code sent by email (see [Authentication](#authentication)). Production sends it through a Gmail account over SMTP. All of this is configured in the Supabase dashboard, not in the repo or in an environment variable:
 
-- **Sender credentials:** **Authentication → Emails → SMTP Settings** in the dashboard (older dashboards: **Project Settings → Auth → SMTP Settings**; the labels move around). Host `smtp.gmail.com`, port `465` (SSL) or `587` (STARTTLS), the Gmail address as the username, and a Google **app password** as the password (16 characters, entered without spaces; it needs 2-Step Verification on the Google account). If Google revokes the app password, or the Google account's password or security settings change, codes silently stop arriving: generate a new app password and paste it into the same settings.
+- **Sender credentials:** **Authentication → SMTP Settings** in the dashboard (labels move around between dashboard versions; search the dashboard for "SMTP" if you don't see it). Host `smtp.gmail.com`, port `465` (SSL) or `587` (STARTTLS), the Gmail address as the username, and a Google **app password** as the password (16 characters, entered without spaces; it needs 2-Step Verification on the Google account). If Google revokes the app password, or the Google account's password or security settings change, codes silently stop arriving: generate a new app password and paste it into the same settings.
 - **Email text:** the **Magic Link** template must show the code with `{{ .Token }}` (not a link). The local copy, which production should match, is [supabase/templates/magic_link.html](./supabase/templates/magic_link.html). If the production template is changed in the dashboard, update that file to match so local and production don't drift.
-- **Auth settings that matter:** sign-ups are disabled (only seeded participants can get a code), codes are 8 digits, and Supabase allows one email per address every 30 seconds (the login form's resend countdown matches it). [supabase/config.toml](./supabase/config.toml) holds the **local** values of these; `npx supabase config diff` can compare them with the linked project if you want to check for drift (run it after `npx supabase link`; treat the output as a hint and look in the dashboard to confirm).
-- **Rate limits:** the number of emails Supabase will send per hour is a dashboard setting (**Authentication → Rate Limits**). The `email_sent` value in `supabase/config.toml` is local-only and does not change production. Gmail itself also caps a normal account at roughly 500 emails a day, which a pool this size should not approach, but a whole group requesting codes at the moment the window opens can hit the hourly limit in Supabase, so raise it before the window if it is low.
+- **Auth settings that matter:** sign-ups are disabled (only seeded participants can get a code), codes are 8 digits, and Supabase allows one email per address every 30 seconds (the login form's resend countdown matches it). [supabase/config.toml](./supabase/config.toml) holds the **local** values of these. Production should match them, but this repo cannot prove it: confirm in the dashboard, or with `npx supabase config diff` (run it after `npx supabase link`; treat the output as a hint).
+- **Rate limits:** the number of emails Supabase will send per hour is a dashboard setting (**Authentication → Rate Limits**; labels may differ). The `email_sent` value in `supabase/config.toml` is local-only and does not change production. Gmail itself also caps a normal account at roughly 500 emails a day (approximate, and subject to Google's policy), which a pool this size should not approach, but a whole group requesting codes at the moment the window opens can hit the hourly limit in Supabase, so raise it before the window if it is low.
 - **When a participant says the code never came:** check their spam folder, then **Logs → Auth** in the dashboard for the send attempt and its error (SMTP failures and rate limits show up there). The sign-in route always answers "a code is on its way" whether or not the email is registered, so the page itself will never tell you that the address was wrong; check the address against the `profiles` table.
 
 ### Database changes
@@ -379,11 +379,11 @@ Before each season, run `npx supabase db push --dry-run` to see whether producti
 
 ### Before each season: set up the season
 
-Do these in order, and use the same checks each year. Steps 1 to 3 write to production, so confirm the target each time.
+Do these in order, and use the same checks each year. Steps 1 and 3 use scripts: put the production values in `.env.local` first (see [Accounts and access you need](#accounts-and-access-you-need)) and read the host the script prints before it writes. Step 2 runs in the dashboard.
 
 1. **Check the team list, and reseed `teams` only if it changed.** Compare [Planning/d1_fbs_college_football_teams.csv](./Planning/d1_fbs_college_football_teams.csv) with the season's actual FBS teams and conferences (new FBS members, teams that changed conference, renamed teams, changed logos). If nothing changed, production already has the right teams and you can skip the seed. If something changed, edit the CSV, and if a conference was added or realigned, update the power-conference rules at the top of [scripts/seed-teams/teams.ts](./scripts/seed-teams/teams.ts) (`NON_POWER_CONFERENCES` and `POWER_OVERRIDES`; the power conferences themselves are in [lib/conferences.ts](./lib/conferences.ts)). Then run `npm run seed:teams` against production as described in [Seeding teams](#seeding-teams). It upserts by team ID, so re-running is safe, and it never deletes teams. Run `npm test` after editing the rules, and make that change a pull request.
 2. **Add the season's `seasons` row.** Add a tuple to [supabase/seed.sql](./supabase/seed.sql) with the new window (times in ET with the right UTC offset), add the matching row to the table in [supabase/seed.test.ts](./supabase/seed.test.ts), run `npm test`, and paste the whole file into the dashboard's **SQL Editor** to load it. Then run the verification query and compare the instants. All the details are in [Seasons (edit window)](#seasons-edit-window). Do this before step 3: the participants script refuses to run for a year without a `seasons` row.
-3. **Seed the participants.** Put the season's CSV (UTF-8, git-ignored) at `private/participants.csv`, then run the dry run (`npm run seed:participants -- --year <year>`), fix everything it lists, and run it again with `--apply --production`. Check the counts and that it exited 0 with no `differs` rows. See [Seeding participants](#seeding-participants) for the file format and the full production sequence. Do it for everyone before announcing the site, so nobody logs in to an empty My Picks page.
+3. **Seed the participants.** Put the season's CSV (UTF-8, git-ignored) at `private/participants.csv`, then run the dry run (`npm run seed:participants -- --year <year>`), fix everything it lists, and run it again with `--apply --production`. Check the counts and that it exited 0 with no `differs` rows. See [Seeding participants](#seeding-participants) for how to create the `private/` folder, the file format, and the full **Production** sequence. Do it for everyone before announcing the site, so nobody logs in to an empty My Picks page.
 4. **Bump the year in code**, in one small pull request, only after steps 2 and 3 are done:
    - set `CURRENT_SEASON_YEAR` in [lib/seasons/current-season.ts](./lib/seasons/current-season.ts) to the new year (My Picks reads this, so until it is bumped the page keeps showing last season's picks);
    - update the hard-coded edit-window dates and year in the Home page text ([app/page.tsx](./app/page.tsx); a comment there says to do it each year) to match the new `seasons` row.
@@ -428,7 +428,7 @@ select * from public.all_submissions where year = 2026 order by name;
 
 (Change the year as needed. The query has not been saved in the dashboard, so paste it each time unless you save it yourself.)
 
-The view is wide (about 40 columns), so scroll sideways; filter to one year; and in the SQL editor, list just the columns you want (for example `name, current_1, current_2, champion`). Exported CSVs contain participants' emails, so don't share them or put them anywhere public.
+The view is wide (36 columns), so scroll sideways; filter to one year; and in the SQL editor, list just the columns you want (for example `name, current_1, current_2, champion`). Exported CSVs contain participants' emails, so don't share them or put them anywhere public.
 
 The view is read-only. To fix a participant's picks, edit the `submissions` table (in the **Table Editor**, or with SQL as in [Seeding participants](#seeding-participants)).
 
@@ -436,18 +436,18 @@ The view is read-only. To fix a participant's picks, edit the `submissions` tabl
 
 **Giving Tyler access.** The intended setup is to invite Tyler to the Supabase organization with the least access that still lets him read the view, so he can open the project's Table Editor or SQL Editor himself (the exact role and steps are not confirmed yet; this is Task M11 in the design doc). Two caveats until that is confirmed:
 
-- Because the view uses `security_invoker`, it runs with the viewer's database role. The dashboard role Tyler gets must be one that bypasses row-level security to see everyone's rows. If he can open `all_submissions` but it is empty, that is the most likely reason; check the role the invite gave him. Whether the dashboard's **Read-only** member role does this has not been verified in production.
+- Because the view uses `security_invoker`, it runs with the viewer's database role. The dashboard role Tyler gets must be one that bypasses row-level security to see everyone's rows. If he can open `all_submissions` but it is empty, a possible cause (unverified, Task M11) is this; check the role the invite gave him. Whether the dashboard's **Read-only** member role does this has not been verified in production.
 - That same role may also be able to read other tables, such as the auth users table, so his access could be wider than just this view. Decide whether that is acceptable before inviting him.
 
 ### Troubleshooting
 
-| Symptom | Likely cause | What to do |
+| Symptom | Possible cause | What to do |
 |---------|--------------|------------|
 | The site can't load picks, or login codes never arrive, and the dashboard shows the project is paused | Supabase paused the project for inactivity | [Unpause it](#before-each-season-unpause-the-supabase-project) |
 | A participant says "My Picks" shows no picks | They aren't seeded for the current year, or `CURRENT_SEASON_YEAR` is a year that wasn't seeded | Check `submissions` for their `user_id` and year; [seed](#seeding-participants) the late participant; check `CURRENT_SEASON_YEAR` |
 | A participant never gets a code | Address not in `profiles`; spam; SMTP credentials revoked; rate limit | Check the address, their spam folder, **Logs → Auth**, and [Login email sender](#login-email-sender-gmail-through-supabase) |
 | The Edit button is disabled | Outside the window, or the year has no `seasons` row | Read the message under the button, and check the `seasons` row with the verification query in [Seasons (edit window)](#seasons-edit-window) |
-| Tyler can open `all_submissions` but it is empty | His dashboard role doesn't bypass row-level security (the view uses `security_invoker`) | Check his role in the organization settings, or use the maintainer's account to read the view |
+| Tyler can open `all_submissions` but it is empty | His dashboard role may not bypass row-level security (the view uses `security_invoker`; unverified, Task M11) | Check his role in the organization settings, or use the maintainer's account to read the view |
 | A seed script wrote to the wrong database | A variable set in the shell overrode `.env.local` | Check the shell, then see [Seeding teams](#seeding-teams) for the target check; fix the data in the SQL Editor |
 
 ### Reference

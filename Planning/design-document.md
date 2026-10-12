@@ -760,7 +760,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
   - Notes:
     - Scope widened beyond the original two requirements at the maintainer's request ("include all details relevant to a maintainer"). The section keeps its existing heading and three subsections so links to them still work.
   - Blockers/Open Questions:
-    - PR 24 is merged (#57), so the view exists. Task M11 is still open, so Tyler's access steps and role behavior are documented as intended and unverified.
+    - PR 24 (#34) is merged (#57), so the view exists. Task M11 is still open, so Tyler's access steps and role behavior are documented as intended and unverified.
 
 - PR 24: Add a readable `all_submissions` view for Tyler
   - User Story: As Tyler, I would like to see every participant's initial and current picks with team names so I can verify updates without an admin page.
