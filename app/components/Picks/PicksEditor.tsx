@@ -23,6 +23,11 @@ type Props = {
   /** The saved picks the editor starts from. */
   view: PicksView;
   teams: readonly TeamOption[];
+  /**
+   * The user's top 12 as first submitted, one team id per slot. Slots whose
+   * current choice differs get an "Originally" hint. Never the previous save.
+   */
+  initialTop12: readonly number[];
   onCancel: () => void;
   /**
    * Validates and saves the draft. The editor shows any `invalid` or `failed`
@@ -71,7 +76,7 @@ function alsoInText(slots: number[]): string {
  * the draft. Duplicates get a hint but never block anything; checking the
  * rules is the save step's job.
  */
-export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
+export default function PicksEditor({ view, teams, initialTop12, onCancel, onSave }: Props) {
   const [{ draft, clearedChampionId }, dispatch] = useReducer(reducer, view, (initial) => ({
     draft: draftFromView(initial),
     clearedChampionId: null,
@@ -131,6 +136,12 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
     const teamId = teamInSlot(draft, slot);
     const others = duplicates[slot];
     const hintId = `${hintPrefix}-hint-${slot}`;
+    const originalId = `${hintPrefix}-original-${slot}`;
+    // Slots 13-15 have no hint; a missing entry (the database doesn't fix the array length) has nothing to show.
+    const originalTeamId = slot <= PLAYOFF_SIZE ? initialTop12[slot - 1] : undefined;
+    const showOriginal = originalTeamId !== undefined && originalTeamId !== teamId;
+    // The TeamSelect prop is a single id string, so pass the space-separated list aria-describedby accepts.
+    const describedBy = [showOriginal && originalId, others && hintId].filter(Boolean).join(" ") || undefined;
     return (
       <li key={slot} className={styles.slot}>
         <TeamLogo imageUrl={teamId === null ? null : (logosById.get(teamId) ?? null)} eager={slot <= EAGER_RANKS} />
@@ -139,9 +150,14 @@ export default function PicksEditor({ view, teams, onCancel, onSave }: Props) {
             label={`Slot ${slot}`}
             value={teamId}
             teams={teams}
-            describedBy={others ? hintId : undefined}
+            describedBy={describedBy}
             onChange={(id) => edit({ type: "slot", slot, teamId: id })}
           />
+          {showOriginal && (
+            <span id={originalId} className={styles.originalHint}>
+              Originally: {teamLabel(teams, originalTeamId)}
+            </span>
+          )}
           {others && (
             <span id={hintId} className={styles.hint}>
               {alsoInText(others)}
