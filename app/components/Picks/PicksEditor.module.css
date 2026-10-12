@@ -157,6 +157,16 @@
   background: var(--nav-hover);
 }
 
+.primary {
+  border-color: var(--confirm);
+  color: var(--confirm-text);
+  background: var(--confirm);
+}
+
+.primary:hover:not(:disabled, [aria-disabled="true"]) {
+  background: var(--confirm-hover);
+}
+
 .button:disabled,
 .button[aria-disabled="true"] {
   cursor: not-allowed;

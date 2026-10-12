@@ -39,6 +39,16 @@
   background: var(--nav-hover);
 }
 
+.primary {
+  border-color: var(--confirm);
+  color: var(--confirm-text);
+  background: var(--confirm);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--confirm-hover);
+}
+
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.6;

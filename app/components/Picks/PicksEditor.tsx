@@ -254,7 +254,7 @@ export default function PicksEditor({ view, teams, initialTop12, onCancel, onSav
         </button>
         <button
           type="button"
-          className={styles.button}
+          className={`${styles.button} ${styles.primary}`}
           disabled={!onSave}
           aria-disabled={saving ? "true" : undefined}
           onClick={handleSave}
