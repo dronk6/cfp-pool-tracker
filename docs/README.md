@@ -14,7 +14,7 @@
 
 | Doc | Scope |
 |-----|-------|
-| [architecture.md](./architecture.md) | System overview, request flow, repository layout, key `lib/` modules, conventions |
+| [architecture.md](./architecture.md) | System overview, request flow, repository layout, key `lib/` modules, conventions, theming |
 | [development.md](./development.md) | Prerequisites, local setup, environment variables, commands, trying login locally, adding a page |
 | [testing.md](./testing.md) | Vitest and Testing Library conventions, the opt-in database tests, and a catalogue of them |
 | [authentication.md](./authentication.md) | The email-code sign-in flow, the proxy and route gate, the login page, sign-out and the nav bar |
@@ -35,6 +35,7 @@
 | Migrations, row-level security, `supabase/seed.sql`, or seasons | [database.md](./database.md) |
 | The seed scripts or their CSV formats | [seeding.md](./seeding.md) |
 | Environment variables, `.env.example`, or npm commands | [development.md](./development.md) |
-| Database tests | [testing.md](./testing.md) |
+| Database tests, or the contrast and hard-coded-color tests | [testing.md](./testing.md) |
+| Colors, themes, or the variables in `app/globals.css` | [architecture.md](./architecture.md#theming) |
 | CI or Vercel setup | [deployment.md](./deployment.md) |
 | The yearly steps or admin access | [admin-runbook.md](./admin-runbook.md) |

@@ -10,6 +10,7 @@ Tests use [Vitest](https://vitest.dev) with [React Testing Library](https://test
 - Any `*.test.ts` or `*.test.tsx` file is picked up. Keep tests next to the code they cover. [tests/example.test.tsx](../tests/example.test.tsx) shows the pattern.
 - Testing Library cannot render async Server Components, so test server-side logic as plain functions or through the API routes.
 - Test behavior and logic, not static copy.
+- Two tests guard the color scheme and need no setup: `app/globals.contrast.test.ts` checks the contrast of every theme pairing in light and dark, and `app/colors.guard.test.ts` fails on any hard-coded color in CSS or TSX. Details are in [Architecture](./architecture.md#theming).
 
 ## Database tests
 

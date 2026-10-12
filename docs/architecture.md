@@ -5,6 +5,7 @@
 - [Repository layout](#repository-layout)
 - [Key `lib/` modules](#key-lib-modules)
 - [Conventions](#conventions)
+- [Theming](#theming)
 
 A Next.js (App Router, TypeScript) app backed by Supabase (Postgres and Auth). Participants sign in by emailed code and view or revise their picks during a short window each October. For the reasoning behind these choices, see the "Decisions" section of [the design document](../Planning/design-document.md#decisions-from-design-review).
 
@@ -67,3 +68,28 @@ local scripts (seed teams / participants, secret key) ----------------->+
 - **Tests live beside the code they cover** ([Testing](./testing.md)).
 - **The edit window is data, not code.** It is a `seasons` row; changing it needs no deploy ([Database](./database.md#seasons-edit-window)). The one yearly code change is `CURRENT_SEASON_YEAR` ([Admin runbook](./admin-runbook.md)).
 - **The user always comes from the verified session.** Never trust a user id sent by the client.
+
+## Theming
+
+All colors come from CSS variables in [`app/globals.css`](../app/globals.css). Light is the default and a `prefers-color-scheme: dark` block overrides what differs; there is no manual toggle, and `color-scheme: light dark` makes form controls and scrollbars follow the OS. No other CSS or TSX may hard-code a color.
+
+| Variable | Role | Light | Dark |
+|----------|------|-------|------|
+| `--primary-1` | Background | `#F0F0F1` | `#004800` |
+| `--primary-2` | Text and outlines | `#004800` | `#F0F0F1` |
+| `--accent-1` | Emphasized text: inline links, the current nav page, warnings such as "Also in slot N", and the focus ring | `#B34A0E` | `#F59A63` |
+| `--accent-2` | Highlights and primary buttons | `#78A8FC` | `#78A8FC` |
+| `--danger` | Error messages only (not part of the brand palette) | `#B3123B` | `#FFB3C1` |
+
+Lighter shades are never new hex values. Two are derived with `color-mix`: `--outline-soft` (softer borders such as the nav bar edge) and `--accent-2-tint` (hover states). Two literals are fixed in both modes: `--on-accent-2` (`#004800`, the label on primary buttons, because `--primary-2` is light in dark mode) and `--logo-chip` (`#F0F0F1`, the team logo background, because logos are designed for light backgrounds).
+
+**Contrast.** [`app/globals.contrast.test.ts`](../app/globals.contrast.test.ts) reads the variables from `globals.css` and fails if a pairing drops below 4.5:1 for text or 3:1 for outlines and the focus ring, in both modes. The one documented exception is `--accent-2` against the light background (about 2.09:1), so it is never the only thing marking a boundary: primary buttons also carry a `--primary-2` border.
+
+**Rules**
+- Primary buttons (Save, Send Code, Verify Code and the Log Out confirm) use `--accent-2`; every other button is `--primary-1` with a `--primary-2` border.
+- Errors use `--danger` and warnings use `--accent-1`. They are close in lightness, so each message starts with the `StatusCue` component (`app/components/StatusCue`), an `aria-hidden` "Error: " or "Warning: " prefix that does not change accessible names or message strings. Never put orange or red text on a tinted background.
+- A global `:focus-visible` rule draws the `--accent-1` focus ring. Elements that are focused by script and are not controls (the edit form and its error summary) opt out with `outline: none`.
+- A `forced-colors: active` block keeps state visible in Windows high-contrast mode: hovers get an outline, and disabled controls get a dashed border.
+- The team dropdown is a native `<select>`. The closed control is fully themed, but the open list's hover and selected highlight is drawn by the browser; it is tinted only where `appearance: base-select` is supported (Chromium 135 and later), and other browsers keep their default.
+
+**Adding or changing a color.** Define it as a variable in the light block and, if it differs, in the dark block of `globals.css`, then add its pairings to `app/globals.contrast.test.ts`. Derive lighter shades with `color-mix` instead of a new hex. [`app/colors.guard.test.ts`](../app/colors.guard.test.ts) fails on any `#hex`, `rgb()`, `hsl()` or named color in the module CSS files and non-test TSX, and in `globals.css` outside the `:root` blocks.
