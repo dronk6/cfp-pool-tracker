@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Runs GET /api/teams against the local stack (see README → Testing). Only
+// Runs GET /api/teams against the local stack (see docs/testing.md). Only
 // next/headers is faked, with an in-memory cookie jar standing in for the
 // request's cookies. Never writes to `teams` (seed-teams.db.test.ts runs in
 // parallel and counts those rows): it reads whatever `npm run seed:teams`

@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Loads the My Picks data against the local stack (see README → Testing).
+// Loads the My Picks data against the local stack (see docs/testing.md).
 // Only next/headers is faked, with an in-memory cookie jar standing in for the
 // request's cookies. Never writes to `teams`: names come from the
 // already-seeded table, and a throwaway year keeps these rows apart from real ones.
