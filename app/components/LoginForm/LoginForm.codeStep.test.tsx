@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LoginForm from "./LoginForm";
@@ -111,7 +111,9 @@ describe("LoginForm code step", () => {
     await user.type(screen.getByLabelText("Code"), "00000000");
     await user.click(screen.getByRole("button", { name: "Verify Code" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(WRONG);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(WRONG);
+    expect(within(alert).getByText("Error:")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByLabelText("Code")).toHaveFocus();
     expect(navigate).not.toHaveBeenCalled();
     expect(resendButton()).toBeInTheDocument();

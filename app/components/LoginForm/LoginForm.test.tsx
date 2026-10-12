@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import LoginForm from "./LoginForm";
@@ -68,7 +68,9 @@ describe("LoginForm email step", () => {
 
     await submitEmail(user, "nope");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Enter a valid email address.");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Enter a valid email address.");
+    expect(within(alert).getByText("Error:")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByLabelText("Email")).toHaveValue("nope");
     expect(screen.getByLabelText("Email")).toHaveFocus();
     expect(screen.queryByText(GENERIC)).not.toBeInTheDocument();

@@ -229,6 +229,7 @@ describe("PicksEditor", () => {
         "Choose a champion.",
       ]);
       expect(summary).toHaveFocus();
+      expect(within(summary).getByText("Error:")).toHaveAttribute("aria-hidden", "true");
       expect(slot(1)).toHaveValue("2");
       expect(save()).not.toHaveAttribute("aria-disabled");
     });
@@ -243,6 +244,7 @@ describe("PicksEditor", () => {
       await user.click(save());
       const first = await screen.findByRole("region", { name: /Nope, try later\./ });
       expect(first).toHaveFocus();
+      expect(within(first).getByText("Error:")).toHaveAttribute("aria-hidden", "true");
       expect(screen.queryByRole("link", { name: "Log in" })).not.toBeInTheDocument();
 
       await user.click(save());
@@ -354,6 +356,7 @@ describe("PicksEditor original-team hints", () => {
     expect(original.id).not.toBe(duplicate.id);
     expect(slot(1)).toHaveAttribute("aria-describedby", `${original.id} ${duplicate.id}`);
     expect(slot(1)).toHaveAccessibleDescription("Originally: Team 01 Also in slot 2");
+    expect(within(duplicate).getByText("Warning:")).toHaveAttribute("aria-hidden", "true");
   });
 
   it("names an initial team that the team list no longer has", async () => {

@@ -35,6 +35,11 @@
   cursor: pointer;
 }
 
+.button:hover:not(:disabled) {
+  background: var(--accent-2-tint);
+}
+
+/* After .button:hover, which has the same specificity, so the blue stays on hover. */
 /* Send Code and Verify Code. The border keeps the blue visible on the light page. */
 .primary {
   background: var(--accent-2);
@@ -44,10 +49,6 @@
 .primary:hover:not(:disabled) {
   background: var(--accent-2);
   text-decoration: underline;
-}
-
-.button:hover:not(:disabled) {
-  background: var(--accent-2-tint);
 }
 
 .button:disabled {

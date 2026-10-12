@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AccountMenu from "./AccountMenu";
@@ -147,7 +147,9 @@ describe("AccountMenu", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Log Out" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't log out. Try again.");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Couldn't log out. Try again.");
+    expect(within(alert).getByText("Error:")).toHaveAttribute("aria-hidden", "true");
     expect(hardNavigate).not.toHaveBeenCalled();
     expect(isOpen()).toBe(true);
     expect(screen.getByRole("button", { name: "Log Out" })).toBeEnabled();

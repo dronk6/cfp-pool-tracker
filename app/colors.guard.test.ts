@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const SKIPPED_DIRECTORIES = new Set(["node_modules", ".next", ".claude", ".git"]);
 
+// Deliberately partial: the common names, enough to catch a copy-pasted color.
 const NAMED_COLORS = [
   "black", "white", "red", "green", "blue", "yellow", "orange", "purple", "pink", "gray", "grey",
   "brown", "cyan", "magenta", "silver", "gold", "navy", "teal", "maroon", "olive", "lime", "aqua",
@@ -55,10 +56,14 @@ function globalsColors(css: string): string[] {
   return cssColors(withoutThemeDefinitions);
 }
 
-/** Named colors are not checked in TSX, where words such as "red" are far more likely to be text. */
+/**
+ * The color literals in a TSX file. Named colors are not checked here, where words such as "red"
+ * are far more likely to be text. Hex colors count only inside a quoted string, so JSX text such as
+ * "Pick #123" is not flagged.
+ */
 function tsxColors(tsx: string): string[] {
-  const code = withoutComments(tsx);
-  return [code].filter((text) => HEX_COLOR.test(text) || COLOR_FUNCTION.test(text));
+  const strings = withoutComments(tsx).match(/"[^"]*"|'[^']*'|`[^`]*`/g) ?? [];
+  return strings.filter((text) => HEX_COLOR.test(text) || COLOR_FUNCTION.test(text));
 }
 
 const label = (file: string) => relative(ROOT, file).split(sep).join("/");
@@ -106,7 +111,7 @@ describe("the guard", () => {
     expect(cssColors("a { font-family: Arial, Helvetica, sans-serif; }")).toEqual([]);
     expect(cssColors("a { color: currentColor; background: transparent; }")).toEqual([]);
     expect(cssColors("/* #fff and red */ a { margin: 0; }")).toEqual([]);
-    expect(tsxColors('<a className="red-link" href="/#add">x</a> {/* #fff */}')).toEqual([]);
+    expect(tsxColors('<a className="red-link" href="/#add">Pick #123</a> {/* #fff */}')).toEqual([]);
     expect(tsxColors("const total = count(1);")).toEqual([]);
   });
 });

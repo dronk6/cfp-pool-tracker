@@ -110,6 +110,8 @@ describe("MyPicksSection", () => {
 
     await renderSection();
 
-    expect(screen.getByRole("alert")).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toBeInTheDocument();
+    expect(within(alert).getByText("Error:")).toHaveAttribute("aria-hidden", "true");
   });
 });

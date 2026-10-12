@@ -78,11 +78,18 @@ option {
 }
 
 /* The open list of a native select is drawn by the browser; only base-select
-   (Chromium 135+) lets us tint its hover and selected options. */
+   (Chromium 135+) lets us tint its hover and selected options. Best effort: not yet
+   checked visually, so drop this block if it makes the select's layout worse. */
 @supports (appearance: base-select) {
   select,
   ::picker(select) {
     appearance: base-select;
+  }
+
+  ::picker(select) {
+    background: var(--primary-1);
+    color: var(--primary-2);
+    border: 1px solid var(--primary-2);
   }
 
   option:hover,
@@ -93,8 +100,8 @@ option {
 
 @media (forced-colors: active) {
   /* Background-only states vanish in forced colors, so give hovers an outline (no layout shift). */
-  button:hover,
-  a:hover,
+  button:hover:not(:focus-visible),
+  a:hover:not(:focus-visible),
   option:hover {
     outline: 1px solid;
   }
