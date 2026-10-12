@@ -842,6 +842,21 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
   - Blockers/Open Questions:
     - The code can be built now; only the final docs commit depends on PR 23 (the docs hub, in PR #73). Do it after Milestone 10.
 
+- PR 28: Fix logo alignment, add green primary buttons, label the champion
+  - User Story: As a user, I would like the picks screens and buttons to look right and be easier to read: the team logo staying in line with its dropdown, a green confirm button for the main action on each screen, and a clearly labeled champion, so I can tell what each thing is at a glance.
+  - Requirements:
+    - Edit view: the team logo stays vertically centered on the dropdown box itself whether or not a hint ("Originally", "Also in slot N" or both) is shown under it, and nothing shifts when a hint appears. With no hint the layout is identical to today. The slot `<li>` keeps `display: list-item` (flex or grid would drop the list number).
+    - Primary buttons: new variables in `globals.css` (`--confirm` `#2e7d32`, `--confirm-hover` `#256428`, and a `#ffffff` label color), the same in light and dark mode. Save, Send Code and Verify Code use them; Cancel, Send a New Code and Edit stay neutral. Log Out (the popup confirm) stays red (`#c62828`) but, like the green buttons, darkens on hover (`#9e2020`); it has no hover today. No hover on a disabled or `aria-disabled` button; disabled keeps `opacity: 0.6`.
+    - Contrast: label on `#2e7d32` 5.13:1, on the hover 7.16:1; `#2e7d32` against the white page 5.13:1 and against `#0a0a0a` 3.86:1; a unit test on `globals.css` guards the pairings.
+    - My Picks view: the champion line reads **Champion:** {logo} Team Name, with the label and colon bold and the team name regular weight. The edit view's `aria-hidden` Champion label gets the same colon (the control's accessible name is unchanged).
+    - Tests: the champion text assertion in `PicksList.test.tsx` is updated and the contrast test is added; no tests on colors or class names. The layout and hover need a manual check in light and dark at about 375px and about 1200px.
+  - Notes:
+    - Three small independent changes combined in one reviewable ticket; split if any one grows. Full figures and decisions are in issue #77.
+    - Conflicts with PR 27, which says primary buttons use the blue `--accent-2`. By decision, PR 27 is left unchanged for now; whoever builds it reconciles the two.
+    - `#1e6b2f` was rejected: 6.56:1 label, but only 3.02:1 against the dark page.
+  - Blockers/Open Questions:
+    - None.
+
 Hardening, also only if time permits:
 
 - Enforce the edit window in the database (RLS update policy or RPC) as defense in depth. Today only the API checks it, so someone holding the publishable key and their own access token could edit outside the window by calling Supabase directly (they could still change only their own current picks).
