@@ -1,8 +1,8 @@
 // Shared setup for opt-in tests that hit the local Supabase stack. Such tests
 // live in `*.db.test.ts` files with `// @vitest-environment node`, wrap their
 // suite in `describe.skipIf(!runDbTests)`, and create the client in
-// `beforeAll` so that skipped runs never need the env vars. See README →
-// Testing.
+// `beforeAll` so that skipped runs never need the env vars. See
+// docs/testing.md.
 import { existsSync } from "node:fs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 

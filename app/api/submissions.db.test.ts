@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Runs GET /api/submissions/:year against the local stack (see README →
-// Testing). Only next/headers is faked, with an in-memory cookie jar standing
+// Runs GET /api/submissions/:year against the local stack (see
+// docs/testing.md). Only next/headers is faked, with an in-memory cookie jar standing
 // in for the request's cookies. Never writes to `teams`: the champion id comes
 // from the already-seeded table.
 import { randomUUID } from "node:crypto";

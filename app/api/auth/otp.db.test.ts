@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Runs the real route handlers against the local Supabase stack (see README →
-// Testing). Only next/headers is faked, with an in-memory cookie jar standing
+// Runs the real route handlers against the local Supabase stack (see
+// docs/testing.md). Only next/headers is faked, with an in-memory cookie jar standing
 // in for the request's cookies.
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";

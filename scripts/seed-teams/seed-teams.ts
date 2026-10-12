@@ -1,5 +1,5 @@
 // Seeds `public.teams` from the ESPN teams CSV. Run with `npm run seed:teams`
-// (optionally followed by a CSV path); see README → Database → Seeding teams.
+// (optionally followed by a CSV path); see docs/seeding.md.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Runs PUT /api/submissions/:year against the local stack (see README →
-// Testing). Only next/headers (an in-memory cookie jar) and lib/clock are
+// Runs PUT /api/submissions/:year against the local stack (see
+// docs/testing.md). Only next/headers (an in-memory cookie jar) and lib/clock are
 // faked. Uses throwaway season years, never the real 2026 row, and never
 // writes to `teams`: the champion id comes from the already-seeded table.
 import { randomUUID } from "node:crypto";
