@@ -1,6 +1,6 @@
 # College Football Playoff Prediction Tracker
 
-A Next.js (App Router) + TypeScript app for tracking College Football Playoff predictions. See [Planning/design-document.md](./Planning/design-document.md) for the full design.
+A Next.js (App Router) + TypeScript app for tracking College Football Playoff predictions. See [Planning/design-document.md](./Planning/design-document.md) for the full design. Maintainers and the pool admin: see [Admin Responsibilities](#admin-responsibilities) for the yearly runbook.
 
 ## Local Development
 
@@ -67,7 +67,7 @@ They write to the local database, and refuse to run unless `SUPABASE_URL` points
 | `/login` | Log In (email, then the emailed code) |
 | `/my-picks` | My Picks |
 
-Each page is a placeholder for now. The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. The right end of the bar shows a Log In link, or an account menu when signed in (see [Signing out and the nav bar](#signing-out-and-the-nav-bar)). To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
+The navigation bar (`app/components/NavBar`) is rendered in `app/layout.tsx`, so it appears on every page. Below 768px it shows a hamburger button that opens a side panel; at 768px and wider the links are shown inline. The right end of the bar shows a Log In link, or an account menu when signed in (see [Signing out and the nav bar](#signing-out-and-the-nav-bar)). To add a page, create its `app/<route>/page.tsx` and add an entry to `app/components/NavBar/navLinks.ts`.
 
 ## Authentication
 
@@ -307,7 +307,44 @@ For 2026 this must show:
 
 ## Admin Responsibilities
 
-These are the things Tyler (or the maintainer) must do by hand. The app does not do them automatically.
+This section is the yearly runbook. Nothing here happens automatically: the Supabase project is not kept awake, seasons are not created on a schedule, and participants are not imported by the app. It is written for two people:
+
+- **The maintainer** runs everything below that uses a terminal (migrations, seed scripts, the one-line year bump).
+- **Tyler**, the pool admin, mostly only reads: he looks at everyone's picks in the Supabase dashboard ([During the season](#during-the-season-view-everyones-picks)). He does not need a terminal.
+
+Details that already have their own section (environment variables, seed scripts, migrations, the edit window) are linked rather than repeated here, so follow the links for the full commands.
+
+### At a glance
+
+Do these in order, a week or more before the edit window opens. Skipping ahead is the usual way to get a broken launch.
+
+1. [Unpause the Supabase project](#before-each-season-unpause-the-supabase-project) and check the data and sign-in.
+2. [Apply any new migrations](#database-changes) to production.
+3. [Reseed `teams`](#before-each-season-set-up-the-season) if the team list or conferences changed (check the CSV every season).
+4. Add the new `seasons` row (same section).
+5. Seed the participants (same section).
+6. Bump `CURRENT_SEASON_YEAR` and update the Home page's edit-window text (same section), in one pull request, after the seeding.
+7. [Verify](#verifying-before-you-announce) the site, then announce it.
+8. [During the season](#during-the-season-view-everyones-picks): read picks in the dashboard, and fix problems with the [troubleshooting table](#troubleshooting).
+
+### Accounts and access you need
+
+| What | Who needs it | Used for |
+|------|--------------|----------|
+| Supabase dashboard login for the project owner | Maintainer | Unpausing, SQL editor, Table Editor, Auth settings, logs, API keys |
+| The Supabase project ref (in the dashboard URL, `supabase.com/dashboard/project/<project-ref>`) | Maintainer | `npx supabase link` (see [Applying migrations to production](#applying-migrations-to-production)) |
+| The production database password (set when the project was created; reset under **Project Settings → Database** if lost) | Maintainer | `npx supabase link` only |
+| The production API URL and secret key (**Project Settings → API** and **API Keys**) | Maintainer | Running the seed scripts against production |
+| Vercel project access | Maintainer | Environment variables, checking deployments |
+| GitHub write access to the repository | Maintainer | The yearly year-bump pull request |
+| The Gmail account that sends login codes, and its app password | Maintainer | Login emails; the app password lives only in the Supabase dashboard (see [Login email sender](#login-email-sender-gmail-through-supabase)) |
+| A Supabase dashboard invite for Tyler (**Organization settings → Team**, or the equivalent in the current dashboard) | Tyler | Reading `all_submissions` (see [During the season](#during-the-season-view-everyones-picks)) |
+
+Rules for the keys and `.env.local` (full table in [Environment variables](#environment-variables)):
+
+- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` belong in Vercel (Production and Preview). `SUPABASE_SECRET_KEY` **never** goes in Vercel: it bypasses row-level security and is only for the seed scripts on your own machine.
+- Put production values in `.env.local` only for the minutes it takes to run a seed script against production, then restore the local values.
+- A variable already set in your shell wins over `.env.local`. Before any script that writes to production, and again before any script you mean to run locally, check that nothing is set in your shell (the commands are under [Seeding teams](#seeding-teams)), and read the host the script prints.
 
 ### Before each season: unpause the Supabase project
 
@@ -317,28 +354,103 @@ Do this at least a few days before the edit window opens, so any problem shows u
 
 1. Sign in at [supabase.com/dashboard](https://supabase.com/dashboard) with the project owner's account.
 2. Open the CFP Pool Tracker project. A paused project shows a **"Project paused"** banner.
-3. Click **Restore project** and wait a few minutes until the status is active. (Supabase only keeps paused free projects restorable for a limited time, currently about 90 days from the pause, so check the banner for the deadline. Don't let one sit past it.)
+3. Click **Restore project** and wait a few minutes until the status is active. (Supabase only keeps paused free projects restorable for a limited time, about 90 days from the pause when this was written; the exact period is Supabase's policy and may change, so check the banner for the deadline and don't let one sit past it. A project that is past its deadline cannot be restored in place: you would have to download the backup, if Supabase still offers one, and create a new project, which changes every URL and key.)
 4. Confirm the data survived: open **Table Editor** and check that `teams`, `profiles`, `submissions` and `seasons` have rows.
 5. Confirm sign-in works: go to the deployed site, request a login code for your own participant email, and sign in.
-6. If the codes don't arrive, check **Project Settings → Auth → SMTP Settings** (the Gmail sender's credentials; if Google revoked the app password, generate a new one) and **Logs → Auth** in the Supabase dashboard.
+6. If the codes don't arrive, see [Login email sender](#login-email-sender-gmail-through-supabase) and the [troubleshooting table](#troubleshooting).
+
+Once the project is running again, it stays up for as long as it keeps seeing activity. The pool's heaviest use is the edit window and the weeks after it, so it should not pause again mid-season, but check it before the window opens if there has been a quiet stretch.
+
+### Login email sender (Gmail through Supabase)
+
+Participants sign in with a code sent by email (see [Authentication](#authentication)). Production sends it through a Gmail account over SMTP. All of this is configured in the Supabase dashboard, not in the repo or in an environment variable:
+
+- **Sender credentials:** **Authentication → Emails → SMTP Settings** in the dashboard (older dashboards: **Project Settings → Auth → SMTP Settings**; the labels move around). Host `smtp.gmail.com`, port `465` (SSL) or `587` (STARTTLS), the Gmail address as the username, and a Google **app password** as the password (16 characters, entered without spaces; it needs 2-Step Verification on the Google account). If Google revokes the app password, or the Google account's password or security settings change, codes silently stop arriving: generate a new app password and paste it into the same settings.
+- **Email text:** the **Magic Link** template must show the code with `{{ .Token }}` (not a link). The local copy, which production should match, is [supabase/templates/magic_link.html](./supabase/templates/magic_link.html). If the production template is changed in the dashboard, update that file to match so local and production don't drift.
+- **Auth settings that matter:** sign-ups are disabled (only seeded participants can get a code), codes are 8 digits, and Supabase allows one email per address every 30 seconds (the login form's resend countdown matches it). [supabase/config.toml](./supabase/config.toml) holds the **local** values of these; `npx supabase config diff` can compare them with the linked project if you want to check for drift (run it after `npx supabase link`; treat the output as a hint and look in the dashboard to confirm).
+- **Rate limits:** the number of emails Supabase will send per hour is a dashboard setting (**Authentication → Rate Limits**). The `email_sent` value in `supabase/config.toml` is local-only and does not change production. Gmail itself also caps a normal account at roughly 500 emails a day, which a pool this size should not approach, but a whole group requesting codes at the moment the window opens can hit the hourly limit in Supabase, so raise it before the window if it is low.
+- **When a participant says the code never came:** check their spam folder, then **Logs → Auth** in the dashboard for the send attempt and its error (SMTP failures and rate limits show up there). The sign-in route always answers "a code is on its way" whether or not the email is registered, so the page itself will never tell you that the address was wrong; check the address against the `profiles` table.
+
+### Database changes
+
+Schema changes are SQL migrations in [supabase/migrations](./supabase/migrations), and they are applied to production by hand, not by CI. See [Applying migrations to production](#applying-migrations-to-production) for the commands, and [Changing the schema](#changing-the-schema) for the rule never to edit a migration that has already been applied.
+
+Before each season, run `npx supabase db push --dry-run` to see whether production is missing any. Anything the app depends on must be applied first: for example, the migration that creates the `all_submissions` view has to be applied to production before Tyler can see that view.
 
 ### Before each season: set up the season
 
-1. Reseed `teams` in production from the season's `d1_fbs_college_football_teams.csv` with `npm run seed:teams` (see [Seeding teams](#seeding-teams)).
-2. Add the season's row to `seasons` and load it in production; see [Seasons (edit window)](#seasons-edit-window).
-3. Seed every participant (auth user, `profiles` row, then initial `submissions` row) with `npm run seed:participants`: a dry run, then `--apply --production` (see [Seeding participants](#seeding-participants)). Do it for everyone before announcing the site, so nobody logs in to an empty "My Picks" page.
-4. Bump `CURRENT_SEASON_YEAR` in [lib/seasons/current-season.ts](./lib/seasons/current-season.ts) to the new year and deploy (a one-line code change). My Picks reads that year, so until it is bumped the page keeps showing last season's picks.
+Do these in order, and use the same checks each year. Steps 1 to 3 write to production, so confirm the target each time.
+
+1. **Check the team list, and reseed `teams` only if it changed.** Compare [Planning/d1_fbs_college_football_teams.csv](./Planning/d1_fbs_college_football_teams.csv) with the season's actual FBS teams and conferences (new FBS members, teams that changed conference, renamed teams, changed logos). If nothing changed, production already has the right teams and you can skip the seed. If something changed, edit the CSV, and if a conference was added or realigned, update the power-conference rules at the top of [scripts/seed-teams/teams.ts](./scripts/seed-teams/teams.ts) (`NON_POWER_CONFERENCES` and `POWER_OVERRIDES`; the power conferences themselves are in [lib/conferences.ts](./lib/conferences.ts)). Then run `npm run seed:teams` against production as described in [Seeding teams](#seeding-teams). It upserts by team ID, so re-running is safe, and it never deletes teams. Run `npm test` after editing the rules, and make that change a pull request.
+2. **Add the season's `seasons` row.** Add a tuple to [supabase/seed.sql](./supabase/seed.sql) with the new window (times in ET with the right UTC offset), add the matching row to the table in [supabase/seed.test.ts](./supabase/seed.test.ts), run `npm test`, and paste the whole file into the dashboard's **SQL Editor** to load it. Then run the verification query and compare the instants. All the details are in [Seasons (edit window)](#seasons-edit-window). Do this before step 3: the participants script refuses to run for a year without a `seasons` row.
+3. **Seed the participants.** Put the season's CSV (UTF-8, git-ignored) at `private/participants.csv`, then run the dry run (`npm run seed:participants -- --year <year>`), fix everything it lists, and run it again with `--apply --production`. Check the counts and that it exited 0 with no `differs` rows. See [Seeding participants](#seeding-participants) for the file format and the full production sequence. Do it for everyone before announcing the site, so nobody logs in to an empty My Picks page.
+4. **Bump the year in code**, in one small pull request, only after steps 2 and 3 are done:
+   - set `CURRENT_SEASON_YEAR` in [lib/seasons/current-season.ts](./lib/seasons/current-season.ts) to the new year (My Picks reads this, so until it is bumped the page keeps showing last season's picks);
+   - update the hard-coded edit-window dates and year in the Home page text ([app/page.tsx](./app/page.tsx); a comment there says to do it each year) to match the new `seasons` row.
+
+   Create a branch, open the pull request, wait for the CI check to pass (see [Continuous Integration](#continuous-integration)), and merge to `main`. Vercel's GitHub integration deploys `main` automatically; there is no deploy workflow in this repo. Check the deployment finished in Vercel.
+5. **Restore `.env.local`** to the local values, and make sure nothing production-related is set in your shell.
+
+### The edit window
+
+The window is data, not code (see [Seasons (edit window)](#seasons-edit-window)). Things worth knowing while administering:
+
+- It is half-open: editing is allowed when `edit_opens_at <= now < edit_closes_at`, so the closing instant itself is already closed.
+- "Now" is the server's clock, never the participant's.
+- Enter instants in Eastern time with the right UTC offset: `-04:00` during daylight time (EDT) and `-05:00` during standard time (EST). A midnight on the first Sunday of November is still `-04:00`.
+- To move a window, edit that year's tuple in `supabase/seed.sql` (and the matching row in `supabase/seed.test.ts`), run the file in the dashboard's SQL Editor again, and re-run the verification query. No deploy is needed. If the Home page text states the dates, it is a code change to update it (see step 4 above).
+- A year with no `seasons` row means editing is closed for it. My Picks says editing isn't open, and saves are rejected.
+
+### Verifying before you announce
+
+Before telling participants the site is live:
+
+1. In the dashboard's **Table Editor**, check `teams`, `seasons` (the new row) and `submissions` (one row per participant for the year).
+2. In the deployed site, sign in with a real participant's email (yours), and confirm My Picks shows the new year's picks with logos. Outside the window, the Edit button should be disabled with a message saying when editing opens.
+3. Check [`all_submissions`](#during-the-season-view-everyones-picks) shows every participant.
+4. Test a login email to a non-Gmail address if you can, and look in spam.
 
 ### During the season: view everyone's picks
 
-There is no admin page. Instead, the database has a view called `all_submissions` with one row per participant per year: their name and email, their initial picks (`initial_1` to `initial_15`), their current picks (`current_1` to `current_15`), the champion, and when they submitted and last updated. Picks are team names in order: slots 1 to 12 are the playoff and 13 to 15 are First Three Out. Rows are sorted by year (newest first), then name. If a pick refers to a team that is missing from `teams`, it shows as `Unknown team <id>`.
+There is no admin page. Instead, the database has a view called `all_submissions` with one row per participant per year: their name and email, their initial picks (`initial_1` to `initial_15`), their current picks (`current_1` to `current_15`), the champion, and when they submitted and last updated. Picks are team names in order: slots 1 to 12 are the playoff and 13 to 15 are First Three Out. Rows are sorted by year (newest first), then name. If a pick refers to a team that is missing from `teams`, it shows as `Unknown team <id>`. The champion is empty (`null`) until the participant saves their first revision, and `updated_at` is empty until then too.
 
 To look at it:
 
 1. Sign in at [supabase.com/dashboard](https://supabase.com/dashboard) and open the CFP Pool Tracker project.
 2. Open **Table Editor**, and pick `all_submissions` from the table list (views are listed with the tables). To see only one year, add a filter on `year`.
-3. To get a spreadsheet, use the table editor's **Export** option to download as CSV; it exports the rows being viewed, so apply any filter first. (The exact dashboard steps are confirmed when the view is set up in production, Task M11.)
+3. To get a spreadsheet, use the table editor's **Export** option to download as CSV; it exports the rows being viewed, so apply any filter first. The dashboard labels may differ slightly from the names here; the intended steps are what is written above, and they are still to be confirmed with Tyler's real account (Task M11 in [the design doc](./Planning/design-document.md)).
 
-The view is read-only. To fix a participant's picks, edit the `submissions` table.
+Or, in the **SQL Editor**, paste and run:
 
-The view contains participants' emails, so the API cannot read it: it is only visible in the dashboard (and to scripts using the secret key). The migration that creates it explains why; keep its `security_invoker` option and its `revoke` if you ever recreate it.
+```sql
+select * from public.all_submissions where year = 2026 order by name;
+```
+
+(Change the year as needed. The query has not been saved in the dashboard, so paste it each time unless you save it yourself.)
+
+The view is wide (about 40 columns), so scroll sideways; filter to one year; and in the SQL editor, list just the columns you want (for example `name, current_1, current_2, champion`). Exported CSVs contain participants' emails, so don't share them or put them anywhere public.
+
+The view is read-only. To fix a participant's picks, edit the `submissions` table (in the **Table Editor**, or with SQL as in [Seeding participants](#seeding-participants)).
+
+**Security.** The view contains participants' emails, so the API cannot read it: it is created `with (security_invoker = true)` and the migration revokes all access from `public`, `anon` and `authenticated`, so it is only visible in the dashboard (and to scripts using the secret key). [supabase/all-submissions.db.test.ts](./supabase/all-submissions.db.test.ts) checks this against the local stack (see [Testing](#testing)). The migration explains why; keep both the `security_invoker` option and the `revoke` if you ever recreate the view.
+
+**Giving Tyler access.** The intended setup is to invite Tyler to the Supabase organization with the least access that still lets him read the view, so he can open the project's Table Editor or SQL Editor himself (the exact role and steps are not confirmed yet; this is Task M11 in the design doc). Two caveats until that is confirmed:
+
+- Because the view uses `security_invoker`, it runs with the viewer's database role. The dashboard role Tyler gets must be one that bypasses row-level security to see everyone's rows. If he can open `all_submissions` but it is empty, that is the most likely reason; check the role the invite gave him. Whether the dashboard's **Read-only** member role does this has not been verified in production.
+- That same role may also be able to read other tables, such as the auth users table, so his access could be wider than just this view. Decide whether that is acceptable before inviting him.
+
+### Troubleshooting
+
+| Symptom | Likely cause | What to do |
+|---------|--------------|------------|
+| The site can't load picks, or login codes never arrive, and the dashboard shows the project is paused | Supabase paused the project for inactivity | [Unpause it](#before-each-season-unpause-the-supabase-project) |
+| A participant says "My Picks" shows no picks | They aren't seeded for the current year, or `CURRENT_SEASON_YEAR` is a year that wasn't seeded | Check `submissions` for their `user_id` and year; [seed](#seeding-participants) the late participant; check `CURRENT_SEASON_YEAR` |
+| A participant never gets a code | Address not in `profiles`; spam; SMTP credentials revoked; rate limit | Check the address, their spam folder, **Logs → Auth**, and [Login email sender](#login-email-sender-gmail-through-supabase) |
+| The Edit button is disabled | Outside the window, or the year has no `seasons` row | Read the message under the button, and check the `seasons` row with the verification query in [Seasons (edit window)](#seasons-edit-window) |
+| Tyler can open `all_submissions` but it is empty | His dashboard role doesn't bypass row-level security (the view uses `security_invoker`) | Check his role in the organization settings, or use the maintainer's account to read the view |
+| A seed script wrote to the wrong database | A variable set in the shell overrode `.env.local` | Check the shell, then see [Seeding teams](#seeding-teams) for the target check; fix the data in the SQL Editor |
+
+### Reference
+
+- The CI check (`.github/workflows/ci.yml`, see [Continuous Integration](#continuous-integration)) must pass before a pull request is merged. There is no deploy workflow: Vercel deploys `main` on its own.
+- Design background and the task list are in [Planning/design-document.md](./Planning/design-document.md).
