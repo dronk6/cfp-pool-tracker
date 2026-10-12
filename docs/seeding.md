@@ -1,9 +1,9 @@
 # Seeding
 
-The admin seed scripts load reference and participant data. Both run on the maintainer's machine and write with `SUPABASE_SECRET_KEY` (see [Environment variables](./development.md#environment-variables)). The yearly order of operations is in the [Admin runbook](./admin-runbook.md#before-each-season-set-up-the-season).
-
 - [Seeding teams](#seeding-teams)
 - [Seeding participants](#seeding-participants)
+
+The admin seed scripts load reference and participant data. Both run on the maintainer's machine and write with `SUPABASE_SECRET_KEY` (see [Environment variables](./development.md#environment-variables)). The yearly order of operations is in the [Admin runbook](./admin-runbook.md#before-each-season-set-up-the-season).
 
 ## Seeding teams
 
@@ -31,7 +31,7 @@ $env:SUPABASE_URL; $env:SUPABASE_SECRET_KEY            # PowerShell; remove them
 
 It upserts by team ID, so it is safe to re-run: existing teams are updated in place. It never deletes teams that are missing from the CSV; remove those by hand if needed. Known limitation: if ESPN changes a team's ID but the name stays the same, the upsert fails on the unique `name` constraint; delete the old row first.
 
-The CSV must have the header `Team ID,Team Name,Conference,Image` and no quoted fields; the script rejects malformed rows, duplicates and unknown conferences rather than guessing. Which conferences count as power conferences (and the Notre Dame and UConn overrides) is set in one commented block at the top of [scripts/seed-teams/teams.ts](../scripts/seed-teams/teams.ts). Update it there when a conference is added or realigns.
+The CSV must have the header `Team ID,Team Name,Conference,Image` and no quoted fields; the script rejects malformed rows, duplicates and unknown conferences rather than guessing. Which conferences count as power conferences (and the Notre Dame and UConn overrides) is set in two places: `NON_POWER_CONFERENCES` and `POWER_OVERRIDES` at the top of [scripts/seed-teams/teams.ts](../scripts/seed-teams/teams.ts), and the power conferences themselves in `POWER_CONFERENCES` in [lib/conferences.ts](../lib/conferences.ts). Update them there when a conference is added or realigns.
 
 ## Seeding participants
 

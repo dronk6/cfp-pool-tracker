@@ -72,7 +72,7 @@ Participants sign in with a code sent by email ([Authentication](./authenticatio
 
 - **Sender credentials:** **Authentication → SMTP Settings** (search the dashboard for "SMTP" if you don't see it). Host `smtp.gmail.com`, port `465` (SSL) or `587` (STARTTLS), the Gmail address as the username, and a Google **app password** as the password (16 characters, entered without spaces; it needs 2-Step Verification on the Google account). If Google revokes the app password, or the account's password or security settings change, codes silently stop arriving: generate a new app password and paste it into the same settings.
 - **Email text:** the **Magic Link** template must show the code with `{{ .Token }}` (not a link). The local copy, which production should match, is [supabase/templates/magic_link.html](../supabase/templates/magic_link.html). If you change the template in the dashboard, update that file to match.
-- **Auth settings that matter:** sign-ups are disabled (only seeded participants can get a code), codes are 8 digits, and Supabase allows one email per address every 30 seconds (the login form's resend countdown matches it). [supabase/config.toml](../supabase/config.toml) holds the **local** values of these. Production should match them, but this repo cannot prove it: confirm in the dashboard, or with `npx supabase config diff` (run it after `npx supabase link`; treat the output as a hint).
+- **Auth settings that matter:** sign-ups are disabled (only seeded participants can get a code), codes are 8 digits (local config; confirm in the dashboard), and Supabase allows one email per address every 30 seconds (the login form's resend countdown matches it). [supabase/config.toml](../supabase/config.toml) holds the **local** values of these. Production should match them, but this repo cannot prove it: confirm in the dashboard, or with `npx supabase config diff` (run it after `npx supabase link`; treat the output as a hint).
 - **Rate limits:** the number of emails Supabase will send per hour is a dashboard setting (**Authentication → Rate Limits**). The `email_sent` value in `supabase/config.toml` is local-only and does not change production. Gmail itself caps a normal account at roughly 500 emails a day (approximate, and subject to Google's policy), which a pool this size should not approach; but a whole group requesting codes the moment the window opens can hit Supabase's hourly limit, so raise it before the window if it is low.
 - **When a participant says the code never came:** check their spam folder, then **Logs → Auth** in the dashboard for the send attempt and its error (SMTP failures and rate limits show up there). The sign-in route always answers "a code is on its way" whether or not the email is registered, so the page itself never tells you the address was wrong; check the address against the `profiles` table.
 
@@ -109,7 +109,7 @@ The window is data, not code: see [Seasons (edit window)](./database.md#seasons-
 
 ## During the season: view everyone's picks
 
-**This section is for Tyler** (and the maintainer, who can use the same steps). It needs only the Supabase dashboard.
+**This section is for Tyler** (and the maintainer, who can use the same steps). It needs only the Supabase dashboard. Dashboard labels here were written from memory and may have moved; search the dashboard if one is missing.
 
 There is no admin page. Instead, the database has a view called `all_submissions` with one row per participant per year: name and email, initial picks (`initial_1` to `initial_15`), current picks (`current_1` to `current_15`), the champion, and when they submitted and last updated (36 columns). Picks are team names in order: slots 1 to 12 are the playoff and 13 to 15 are First Three Out. Rows are sorted by year (newest first), then name. A pick whose team is missing from `teams` shows as `Unknown team <id>`. The champion and `updated_at` are empty (`null`) until the participant saves their first revision.
 
@@ -133,10 +133,12 @@ The view is read-only. To fix a participant's picks, edit the `submissions` tabl
 
 **Giving Tyler access.** The intended setup is to invite Tyler to the Supabase organization with the least access that still lets him read the view, so he can open the project's Table Editor or SQL Editor himself.
 
-> **Unverified until Task M11** (see [the design document](../Planning/design-document.md)):
-> - The exact role and dashboard steps for Tyler's invite, and dashboard labels such as **Export**, are not confirmed against his real account.
-> - The view uses `security_invoker`, so it runs with the viewer's database role, and that role must bypass row-level security to see everyone's rows. Whether the dashboard's **Read-only** member role does is unverified. If Tyler can open `all_submissions` but it is empty, this is the possible cause.
-> - That same role may also be able to read other tables, such as the auth users table, so his access could be wider than just this view. Decide whether that is acceptable before inviting him.
+> **Tyler's access hasn't been tested yet.**
+> - The exact role and dashboard steps for his invite, and labels such as **Export**, have not been confirmed against his real account.
+> - The view uses `security_invoker`, so it runs with the viewer's database role, and that role must bypass row-level security to see everyone's rows. An empty table most likely means his role doesn't. Whether the dashboard's **Read-only** member role bypasses it is unconfirmed.
+> - That same role might also be able to read other tables, such as the auth users table, so his access could be wider than just this view. Decide whether that is acceptable before inviting him.
+>
+> Remove this note once Tyler's access is confirmed.
 
 ## Troubleshooting
 
@@ -146,7 +148,7 @@ The view is read-only. To fix a participant's picks, edit the `submissions` tabl
 | A participant says "My Picks" shows no picks | They aren't seeded for the current year, or `CURRENT_SEASON_YEAR` is a year that wasn't seeded | Check `submissions` for their `user_id` and year; [seed](./seeding.md#seeding-participants) the late participant; check `CURRENT_SEASON_YEAR` |
 | A participant never gets a code | Address not in `profiles`; spam; SMTP credentials revoked; rate limit | Check the address, their spam folder, **Logs → Auth**, and [Login email sender](#login-email-sender-gmail-through-supabase) |
 | The Edit button is disabled | Outside the window, or the year has no `seasons` row | Read the message under the button, and check the `seasons` row with the verification query in [Seasons (edit window)](./database.md#seasons-edit-window) |
-| Tyler can open `all_submissions` but it is empty | His dashboard role may not bypass row-level security (unverified until Task M11, see [above](#during-the-season-view-everyones-picks)) | Check his role in the organization settings, or use the maintainer's account to read the view |
+| Tyler can open `all_submissions` but it is empty | His dashboard role may not bypass row-level security (Tyler's access hasn't been tested yet, see [above](#during-the-season-view-everyones-picks)) | Check his role in the organization settings, or use the maintainer's account to read the view |
 | A seed script wrote to the wrong database | A variable set in the shell overrode `.env.local` | Check the shell, then see [Seeding teams](./seeding.md#seeding-teams) for the target check; fix the data in the SQL Editor |
 
 ## Reference

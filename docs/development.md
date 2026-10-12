@@ -54,7 +54,7 @@ Notes:
 
 - The Gmail app password used to send login codes is **not** an environment variable. It lives only in the Supabase dashboard under **Auth → SMTP Settings**.
 - Applying migrations needs no environment variable: `npx supabase link` prompts for the database password (see [Database](./database.md#database)).
-- The teams seed script (`npm run seed:teams`) and the opt-in database tests read `SUPABASE_URL` and `SUPABASE_SECRET_KEY`; the app itself reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (when handling a request, not at import time). The build does not require any of them to be set.
+- The seed scripts read `SUPABASE_URL` and `SUPABASE_SECRET_KEY`, and the opt-in database tests read those plus `SUPABASE_PUBLISHABLE_KEY` (see [Testing](./testing.md#database-tests)); the app itself reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` (when handling a request, not at import time). The build does not require any of them to be set.
 
 ## Trying login locally
 
@@ -64,7 +64,7 @@ Start the local stack, run `npm run dev`, then request a code:
 curl -X POST localhost:3000/api/auth/request-otp -H "Content-Type: application/json" -d '{"email":"someone@example.com"}'
 ```
 
-The email goes to the stack's Mailpit inbox (http://127.0.0.1:54324), not a real mailbox, and is only sent if that email belongs to an existing user. Create one in local Studio (Authentication, Add user, tick Auto Confirm User). The local auth settings in [supabase/config.toml](../supabase/config.toml) (no sign-up, 30 second resend limit, 8-character codes, code-only email from [supabase/templates/magic_link.html](../supabase/templates/magic_link.html)) mirror production. A running stack only picks up changes to that file after `npx supabase stop` and `npx supabase start`.
+The email goes to the stack's Mailpit inbox (http://127.0.0.1:54324), not a real mailbox, and is only sent if that email belongs to an existing user. Create one in local Studio (Authentication, Add user, tick Auto Confirm User). The local auth settings in [supabase/config.toml](../supabase/config.toml) (no sign-up, 30 second resend limit, 8-character codes, code-only email from [supabase/templates/magic_link.html](../supabase/templates/magic_link.html)) are meant to mirror production (confirm production in the dashboard; see the [Admin runbook](./admin-runbook.md#login-email-sender-gmail-through-supabase)). A running stack only picks up changes to that file after `npx supabase stop` and `npx supabase start`.
 
 ## Pages and navigation
 

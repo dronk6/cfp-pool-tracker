@@ -5,11 +5,11 @@
 - [Signing out and the nav bar](#signing-out-and-the-nav-bar)
 - [Cookies and CSRF](#cookies-and-csrf)
 
-Participants sign in without a password: they ask for a code by email and type it in. There is no sign-up; participants are created by an admin script (see [Planning/otp-authentication-plan.md](../Planning/otp-authentication-plan.md)). The sign-in page is `/login` (see [Signing in](#signing-in-login)); the nav bar's "Log In" link goes there (see [Signing out and the nav bar](#signing-out-and-the-nav-bar)). The routes behind it are in [API](./api.md#authentication-routes) and [API](./api.md#session-routes).
+Participants sign in without a password: they ask for a code by email and type it in. There is no sign-up; participants are created by an admin script (see [Seeding participants](./seeding.md#seeding-participants)). The sign-in page is `/login` (see [Signing in](#signing-in-login)); the nav bar's "Log In" link goes there (see [Signing out and the nav bar](#signing-out-and-the-nav-bar)). The routes behind it are in [API](./api.md#authentication-routes) and [API](./api.md#session-routes).
 
 ## Code layout
 
-- [lib/supabase/server.ts](../lib/supabase/server.ts): `createSupabaseServerClient()`, the only Supabase client the app uses (there is no browser client). It reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` when called and throws a clear error if they are missing. Session cookies are HttpOnly, SameSite=Lax, and Secure in production ([lib/supabase/config.ts](../lib/supabase/config.ts)).
+- [lib/supabase/server.ts](../lib/supabase/server.ts): `createSupabaseServerClient()`, the only Supabase client the app uses (there is no browser client). It reads `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` when called and throws a clear error if they are missing. Cookie settings are in [Cookies and CSRF](#cookies-and-csrf).
 - [lib/auth/current-user.ts](../lib/auth/current-user.ts): `getCurrentUser()` returns the signed-in user or `null` (it re-validates with Supabase via `getUser()`). Use it in Server Components and Route Handlers to decide who is asking; never trust a user id sent by the client.
 - [proxy.ts](../proxy.ts) (Next.js 16's name for middleware) refreshes the session on every request except static assets, then applies [lib/auth/route-gate.ts](../lib/auth/route-gate.ts): logged-out visitors to `/my-picks` go to `/login`, and logged-in visitors to `/login` go to `/my-picks`. Public pages and `/login` fail open if Supabase is unreachable; `/my-picks` fails closed. `/api` is never gated, so each route checks the session itself.
 
@@ -30,4 +30,4 @@ The root layout ([app/layout.tsx](../app/layout.tsx)) reads the session user on 
 
 ## Cookies and CSRF
 
-Session cookies are HttpOnly, SameSite=Lax, and Secure in production. There is no CSRF token on `POST /api/logout` or `PUT /api/submissions/:year`: the cookies are SameSite=Lax, so browsers don't send them on cross-site POSTs, a form can't send `PUT`, and requiring JSON forces a CORS preflight, which the API never approves.
+Session cookies are HttpOnly, SameSite=Lax, and Secure in production (set in [lib/supabase/config.ts](../lib/supabase/config.ts)). There is no CSRF token on `POST /api/logout` or `PUT /api/submissions/:year`: the cookies are SameSite=Lax, so browsers don't send them on cross-site POSTs, a form can't send `PUT`, and requiring JSON forces a CORS preflight, which the API never approves.

@@ -57,7 +57,7 @@ Every table has row level security enabled. Signed-in users (the `authenticated`
 
 ## Applying migrations to production
 
-This is done by hand (Task M5, [#10](https://github.com/dronk6/cfp-pool-tracker/issues/10)), not by CI:
+This is done by hand, not by CI:
 
 ```bash
 npx supabase login                                # once per machine; opens the browser

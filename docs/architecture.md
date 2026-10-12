@@ -24,7 +24,7 @@ local scripts (seed teams / participants, secret key) ----------------->+
 
 1. Every request except static assets passes through [proxy.ts](../proxy.ts), which refreshes the session cookies and redirects signed-out visitors away from `/my-picks` and signed-in visitors away from `/login` ([Authentication](./authentication.md)). `/api` is never redirected; each route checks the session itself.
 2. Pages are mostly a static shell. Data-dependent parts (the nav bar's user, the picks) load per request inside `<Suspense>`.
-3. Route Handlers under `app/api` read the user from the verified session, never from the request body, and call functions in `lib/` ([API](./api.md)).
+3. Route Handlers under `app/api` read the user from the verified session (see Conventions below) and call functions in `lib/` ([API](./api.md)).
 4. `lib/` talks to Supabase through `createSupabaseServerClient()` and returns plain data.
 
 ## Repository layout

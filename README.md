@@ -15,7 +15,7 @@ A Next.js (App Router) + TypeScript app for a College Football Playoff predictio
 
 ## Status
 
-The 2026 season is in progress. Milestones 1 to 9 (setup, data, validation, auth, API, My Picks, static pages, participant seeding) are done; Milestone 10, pre-launch verification, is in flight. The milestone list and task breakdown are in [Planning/design-document.md](./Planning/design-document.md#milestones); open work is tracked in GitHub issues.
+The 2026 season is in progress. Milestones 1 to 9 are implemented; Milestone 10, pre-launch verification, is in flight. See the [design document's milestones](./Planning/design-document.md#milestones) and the open GitHub issues for the state of the manual tasks.
 
 ## Tech stack
 
