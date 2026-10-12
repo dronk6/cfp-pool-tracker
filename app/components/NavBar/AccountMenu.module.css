@@ -62,6 +62,11 @@
   color: #ffffff;
 }
 
+.logOut:hover:not(:disabled) {
+  border-color: #9e2020;
+  background: #9e2020;
+}
+
 .cancel {
   border: 1px solid var(--nav-border);
   background: transparent;
