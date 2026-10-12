@@ -1,6 +1,6 @@
 // Seeds participants (auth user, profile, initial submission) from a private
 // CSV. Run with `npm run seed:participants -- --year 2026`; it is a dry run
-// unless you add --apply. See README -> Database -> Seeding participants.
+// unless you add --apply. See docs/seeding.md.
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -136,7 +136,7 @@ export async function seedParticipants(
   }
   for (const row of rows.filter((r) => r.submission === "differs")) {
     warnings.push(
-      `Row ${row.row} (${row.name}): the stored initial picks differ from the file. Left untouched; fix by hand (see README).`,
+      `Row ${row.row} (${row.name}): the stored initial picks differ from the file. Left untouched; fix by hand (see docs/seeding.md).`,
     );
   }
   const counts = apply

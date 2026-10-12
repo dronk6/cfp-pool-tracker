@@ -1,6 +1,6 @@
 // @vitest-environment node
-// Checks the all_submissions view against the local Supabase stack (see README
-// → Testing): its rows are correct and ordered, and nobody but the secret key
+// Checks the all_submissions view against the local Supabase stack (see
+// docs/testing.md): its rows are correct and ordered, and nobody but the secret key
 // can read it through the API.
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";

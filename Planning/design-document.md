@@ -1,5 +1,7 @@
 # Design: CFP Pool Tracker
 
+> **Docs vs. Planning:** this folder holds the design, the decisions behind it and the task breakdown (why, and what comes next). How the system works today is documented in [`/docs`](../docs/README.md); where the two disagree about current behavior, `/docs` wins.
+
 ## Overview
 
 ### Problem Statement
@@ -276,7 +278,7 @@ Notes on key decisions:
 - `champion_id` is a separate column because the champion is an explicit declared pick, not a function of list position (it can be any of the 12, not necessarily seed 1). Per the design review, the champion must be one of the teams in `current_playoff` at save time; this is enforced client-side (see [Validation Rules](#validation-rules)). Because the champion must be in the top 12 on every save, the old edge case of a champion removed from the top 12 can't occur.
 - `champion_id` is nullable because, per the rules, the champion is only declared starting with the week 6/7 revision — it won't exist on a user's initial submission. A saved update always has one.
 
-**`seasons`** — one row per year, holding the edit window so the server can enforce it (see [session-management-plan.md](./session-management-plan.md), Step 5) and so next year's window is a data change, not a code change. Each season, Tyler/the maintainer adds the row to `supabase/seed.sql` and runs that file in the production SQL editor (see the README).
+**`seasons`** — one row per year, holding the edit window so the server can enforce it (see [session-management-plan.md](./session-management-plan.md), Step 5) and so next year's window is a data change, not a code change. Each season, Tyler/the maintainer adds the row to `supabase/seed.sql` and runs that file in the production SQL editor (see [docs/database.md](../docs/database.md#seasons-edit-window) and [docs/admin-runbook.md](../docs/admin-runbook.md)).
 
 ```sql
 seasons (
@@ -364,7 +366,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     1. A dry run has been completed in production with real participant emails on a mobile browser: log in, view picks, edit, save, log out.
     2. Window boundaries have been tested, including ET vs. UTC handling.
     3. OTP emails are confirmed to arrive reliably (not spam-foldered) for the major email providers participants use.
-    4. The README "Admin Responsibilities" section is written (unpausing Supabase, seeding, adding a `seasons` row).
+    4. The admin runbook ([docs/admin-runbook.md](../docs/admin-runbook.md)) is written (unpausing Supabase, reseeding teams when they change, adding a `seasons` row, seeding participants, bumping the season year, viewing everyone's picks, the login email sender, and troubleshooting).
     5. A readable SQL view of all submissions (with team names) exists in Supabase, and Tyler has access to it and instructions for using it.
 
 ### Task Breakdown
@@ -751,15 +753,19 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 
 #### Milestone 10: Pre-launch verification
 
-- PR 23: Write the README "Admin Responsibilities" section
+- PR 23: Write the Admin Runbook and restructure the docs
   - User Story: As Tyler or the maintainer, I would like clear admin instructions so I can run the pool next season.
   - Requirements:
-    - Documents unpausing Supabase before each season, reseeding `teams`, adding the `seasons` row, seeding participants, and bumping `CURRENT_SEASON_YEAR` (`lib/seasons/current-season.ts`).
-    - Documents how Tyler views all submissions: the `all_submissions` SQL view in the Supabase dashboard (see [Decisions](#decisions-from-design-review)).
+    - The README is slim (status, tech stack, quick start, key commands, repo map, documentation index), with a stub "Admin Responsibilities" heading that points to the runbook. A `/docs` hub holds the as-built documentation (`architecture`, `development`, `testing`, `authentication`, `api`, `my-picks`, `database`, `seeding`, `deployment`, `admin-runbook`), each with a table of contents, and `docs/README.md` says which doc to update when something changes.
+    - `docs/admin-runbook.md` documents unpausing Supabase before each season, reseeding `teams` when the team list or conferences change (and checking the CSV every season), adding the `seasons` row, seeding participants, and bumping `CURRENT_SEASON_YEAR` (`lib/seasons/current-season.ts`) along with the Home page's edit-window text.
+    - It documents how Tyler views all submissions: the `all_submissions` SQL view in the Supabase dashboard (see [Decisions](#decisions-from-design-review)), including its columns, ordering and security, and the intended steps for giving Tyler access (hedged until Task M11 is verified).
+    - It includes every other detail a maintainer needs: an ordered checklist, the accounts and access required, the Gmail login-email sender (SMTP settings, app password, template, rate limits), applying migrations, a pre-announcement verification, and a troubleshooting table. These link to the other docs rather than repeating them.
+    - Code comments and error messages that pointed at old README sections point at the new files.
   - Notes:
-    - None.
+    - Scope widened beyond the original two requirements at the maintainer's request ("include all details relevant to a maintainer"), then extended to the docs restructure.
+    - Trimming the API Contracts and Authentication sections of this document (now duplicated in `/docs`) is a follow-up.
   - Blockers/Open Questions:
-    - Depends on PR 24 (the view must exist to be documented).
+    - PR 24 (#34) is merged (#57), so the view exists. Task M11 is still open, so Tyler's access steps and role behavior are documented as intended and unverified.
 
 - PR 24: Add a readable `all_submissions` view for Tyler
   - User Story: As Tyler, I would like to see every participant's initial and current picks with team names so I can verify updates without an admin page.
@@ -822,6 +828,20 @@ Nice-to-haves from the My Picks section, to be ticketed only if time permits: te
   - Blockers/Open Questions:
     - Depends on PRs 17 and 18 (both merged).
 
+- PR 27: Apply the new light and dark color scheme
+  - User Story: As a user, I would like the site to use one consistent, readable color scheme in both light and dark mode, so I can use it comfortably on any device.
+  - Requirements:
+    - `app/globals.css` defines four brand colors plus one error color as CSS custom properties (`--primary-1` background, `--primary-2` text and outlines, `--accent-1` emphasized text and warnings, `--accent-2` highlights and primary buttons, `--danger` errors only) used throughout the app, with no hard-coded colors left in CSS or TSX. Light: `#F0F0F1`, `#004800`, `#B34A0E`, `#78A8FC`, `#B3123B`. Dark: `#004800`, `#F0F0F1`, `#F59A63`, `#78A8FC`, `#FFB3C1`.
+    - Lighter shades are an accent or a CSS function (`color-mix`), never a new hex value. Dark mode keeps following the OS setting.
+    - Usage: outlines use `--primary-2` (or a `color-mix` of it); inline links, the current nav page (bold and underlined; its hover text turns `--primary-2`) and the "Also in slot N" hint use `--accent-1`, in addition to the current underline or marker, while other nav links stay `--primary-2`; nav hover uses a tint of `--accent-2`, and the team dropdown is a native `<select>` whose closed control is fully themed while its open-list highlight is best effort (only where `appearance: base-select` is supported); primary buttons (Save, Send Code, Verify Code, the Log Out confirm) use `--accent-2` with a `#004800` label and a `--primary-2` border; error messages (validation and save-failed summary, login and logout errors, "Couldn't load your picks") use `--danger` and warnings use `--accent-1`, each with an `aria-hidden` text or icon cue (red and orange are close in lightness); team logos keep a `#F0F0F1` chip in dark mode; every interactive element has a visible `--accent-1` focus indicator; `color-scheme: light dark`, `color-mix` scrim and shadow, and a small forced-colors block.
+    - Contrast: 4.5:1 for normal text and 3:1 for outlines and the focus indicator, in both modes, checked by a unit test that reads the variables. The one documented exception is `--accent-2` against the light background (2.09:1), which is never the only boundary.
+    - A second test fails on any hard-coded color in CSS or TSX (apart from the variable definitions, `--on-accent-2` and the logo chip), and a short theming section in `docs/`.
+  - Notes:
+    - The first-proposed `#CC510F` and `#5F96F9` failed contrast and were adjusted; a purple fifth color was dropped (1.16:1 against the green). Full contrast figures are in issue #74.
+    - Orange is not the only cue for links or errors: underlines and text or icon cues stay.
+  - Blockers/Open Questions:
+    - The code can be built now; only the final docs commit depends on PR 23 (the docs hub, in PR #73). Do it after Milestone 10.
+
 Hardening, also only if time permits:
 
 - Enforce the edit window in the database (RLS update policy or RPC) as defense in depth. Today only the API checks it, so someone holding the publishable key and their own access token could edit outside the window by calling Supabase directly (they could still change only their own current picks).
@@ -832,7 +852,7 @@ Hardening, also only if time permits:
 
 - **What counts as a move?** See [Validation Rules](#validation-rules) and [example_valid_moves.md](./example_valid_moves.md). Replacements count 1 each; any reordering of the top 12 counts 1 in total; First Three Out changes and champion selection are free. Moves are always measured against the *initial* picks, so multiple saves are fine.
 - **Is the G6 requirement enforced?** Yes. The top 12 must include at least one team with `is_power_conf = false`, so `is_power_conf` carries real validation weight.
-- **Supabase free-tier pausing:** no keep-alive ping. Tyler/the maintainer manually unpauses the project before each season. Instructions live in the README's "Admin Responsibilities" section.
+- **Supabase free-tier pausing:** no keep-alive ping. Tyler/the maintainer manually unpauses the project before each season. Instructions live in [docs/admin-runbook.md](../docs/admin-runbook.md).
 - **Seeding order of `profiles` vs. `submissions`:** this season only, participants' contact info *and* initial submissions are inserted manually by the maintainer, in the same session (profile first, then submission), because initial picks were collected before the app existed. Nobody should be told the site is live until both exist for every participant. Self-service invitation, sign-in and initial submission are out of scope and will be designed for future seasons (roadmap).
 - **Participant seeding input and safety:** the hand-off is a CSV (one row per participant, 12 picks and 3 First Three Out as team names) that the maintainer runs the script against; Tyler does not run it. The file holds emails, so it lives in git-ignored `private/`, and the script refuses a file git doesn't ignore. The script is a dry run unless `--apply` is given, and a non-local `SUPABASE_URL` additionally needs `--production`. It never modifies an existing submission (insert-only), so re-running can't overwrite participants' edits; correcting someone's initial picks is a manual SQL step. Team names must match `teams` exactly (case and spacing aside) with no alias table; the whole file is validated before any write, with no rollback because every step is idempotent. A missing G6 pick is a warning, not an error, since the pool predates the app.
 - **Champion:** chosen only during the October modification window, does not count as a move, and is **required** for an update to be valid. The champion must be one of the 12 teams in the updated top 12.
@@ -861,7 +881,7 @@ Hardening, also only if time permits:
   - **Statuses:** 403 `outside-edit-window` (also when the year has no `seasons` row) and 415 `unsupported-media-type` for a non-JSON content type. Checks run in order: year, session, content type, body, window, write, so a signed-out caller learns nothing about the body rules.
   - **No CSRF token:** session cookies are `SameSite=Lax`, `PUT` can't come from an HTML form, and requiring `application/json` forces a CORS preflight that the API never approves. Consistent with the logout decision.
 - **My Picks display (PR 16):**
-  - **Season year:** one constant, `CURRENT_SEASON_YEAR = 2026` in `lib/seasons/current-season.ts`, bumped by hand each season (a README admin step). PRs 17-19 reuse it. The calendar year breaks for a season that spans New Year, and "newest `seasons` row" would flip the page as soon as next year's row is added, before picks are seeded.
+  - **Season year:** one constant, `CURRENT_SEASON_YEAR = 2026` in `lib/seasons/current-season.ts`, bumped by hand each season (an admin step in [docs/admin-runbook.md](../docs/admin-runbook.md)). PRs 17-19 reuse it. The calendar year breaks for a season that spans New Year, and "newest `seasons` row" would flip the page as soon as next year's row is added, before picks are seeded.
   - **Content:** names plus logos (see below), headings "Playoff" (1-12) and "First Three Out (Tiebreakers)" (13-15), and a "Champion" line shown only when one is set. The ticket's wording wins over the wireframe, which also shows the Edit button at the bottom; PR 17 adds it top right, as the ticket says. No Edit button in this PR.
   - **Structure:** the page is a static shell and the picks load per request inside `<Suspense>`. `loadMyPicks` reads `getSessionSubmission` then `getTeams` one after the other (never in parallel, so two token refreshes can't race), and a presentational `PicksList` renders the result. The server passes only team names and logo URLs down: no user id, email or timestamps (PR 18 later adds the user's own initial top 12 ids, see "Save flow (PR 18)"). Nothing on this path is cached.
   - **States:** inline messages, never `redirect()` or `notFound()` (a page redirect could loop with the proxy's redirects). Signed out (or the session check fails) shows a "Log in" link as a plain anchor; no row for the year says so and points to Tyler; an unexpected error shows a generic alert and logs only the error name; a team id missing from `teams` shows as "Unknown team (#id)".

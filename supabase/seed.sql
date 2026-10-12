@@ -2,7 +2,7 @@
 --
 -- This file is loaded locally by `supabase db reset` (and the first
 -- `supabase start`), and is also pasted into the production dashboard's SQL
--- editor to add a season (see the README's "Seasons (edit window)" section).
+-- editor to add a season (see docs/database.md, "Seasons (edit window)").
 -- Never put dev-only fixtures here (test users, fake picks, etc.): they would
 -- end up in production.
 --

@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Runs /api/me and /api/logout against the local stack (see README → Testing).
+// Runs /api/me and /api/logout against the local stack (see docs/testing.md).
 // Only next/headers is faked, with an in-memory cookie jar standing in for the
 // request's cookies. Setting a cookie with maxAge 0 or an empty value removes
 // it, as a browser would.

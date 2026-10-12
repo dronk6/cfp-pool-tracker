@@ -8,7 +8,7 @@ This document tracks progress between meetings and action items.
 **Status:** Planning
 **Resources:**
 - See the [09/10 meeting notes](./09-10_meeting-notes.md) for background on the project.
-- See [rules.md](../rules.md) for rules.
+- See [rules.md](./rules.md) for rules.
 
 ## Action Items
 
