@@ -1,6 +1,6 @@
 .header {
-  background: var(--nav-background);
-  border-bottom: 1px solid var(--nav-border);
+  background: var(--primary-1);
+  border-bottom: 1px solid var(--outline-soft);
 }
 
 .nav {
@@ -39,7 +39,7 @@
 }
 
 .hamburger:hover {
-  background: var(--nav-hover);
+  background: var(--accent-2-tint);
 }
 
 .hamburgerLine {
@@ -63,13 +63,19 @@
 }
 
 .link:hover {
-  background: var(--nav-hover);
+  background: var(--accent-2-tint);
 }
 
 .link[aria-current="page"] {
+  color: var(--accent-1);
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 0.25rem;
+}
+
+/* --accent-1 on the blue tint is below 4.5:1, so the current link reverts to body text on hover. */
+.link[aria-current="page"]:hover {
+  color: var(--primary-2);
 }
 
 /* A fixed minimum size so the bar doesn't shift when the user loads in. */
@@ -107,8 +113,8 @@
   z-index: 20;
   width: min(18rem, 80vw);
   padding: 4.5rem 1rem 1rem;
-  background: var(--nav-background);
-  border-right: 1px solid var(--nav-border);
+  background: var(--primary-1);
+  border-right: 1px solid var(--outline-soft);
   transform: translateX(-100%);
   visibility: hidden;
   transition:

@@ -13,8 +13,3 @@
 .container p + p {
   margin-top: 0.75rem;
 }
-
-.container a {
-  text-decoration: underline;
-  text-underline-offset: 0.2rem;
-}

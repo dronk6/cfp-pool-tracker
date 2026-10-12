@@ -8,9 +8,9 @@
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  border: 1px solid var(--nav-border);
+  border: 1px solid var(--primary-2);
   border-radius: 50%;
-  background: var(--nav-hover);
+  background: var(--accent-2-tint);
   color: inherit;
   cursor: pointer;
 }
@@ -26,9 +26,9 @@
   z-index: 30;
   width: min(16rem, calc(100vw - 2rem));
   padding: 1rem;
-  border: 1px solid var(--nav-border);
+  border: 1px solid var(--outline-soft);
   border-radius: 0.5rem;
-  background: var(--nav-background);
+  background: var(--primary-1);
   box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
 }
 
@@ -57,19 +57,19 @@
 }
 
 .logOut {
-  border: 1px solid #c62828;
-  background: #c62828;
-  color: #ffffff;
+  border: 1px solid var(--primary-2);
+  background: var(--accent-2);
+  color: var(--on-accent-2);
 }
 
 .cancel {
-  border: 1px solid var(--nav-border);
-  background: transparent;
+  border: 1px solid var(--primary-2);
+  background: var(--primary-1);
   color: inherit;
 }
 
 .cancel:hover {
-  background: var(--nav-hover);
+  background: var(--accent-2-tint);
 }
 
 .logOut:disabled,
@@ -80,12 +80,6 @@
 
 .error {
   margin-top: 0.75rem;
-  color: #c62828;
+  color: var(--danger);
   font-size: 0.875rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  .error {
-    color: #ff8a80;
-  }
 }

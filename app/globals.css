@@ -1,18 +1,29 @@
+/* Theme variables. Light is the default; the dark block overrides only what differs.
+   Contrast of the pairings is checked by globals.contrast.test.ts. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --nav-background: #f2f2f7;
-  --nav-border: #d4d4d8;
-  --nav-hover: #e4e4ea;
+  color-scheme: light dark;
+
+  --primary-1: #f0f0f1; /* background */
+  --primary-2: #004800; /* text and outlines */
+  --accent-1: #b34a0e; /* emphasized text, warnings, focus ring */
+  --accent-2: #78a8fc; /* highlights and primary buttons */
+  --danger: #b3123b; /* error messages only */
+
+  /* Primary button label: must stay dark in both modes to read on --accent-2. */
+  --on-accent-2: #004800;
+  /* Team logos are designed for a light background, so their chip stays light in dark mode. */
+  --logo-chip: #f0f0f1;
+
+  --outline-soft: color-mix(in srgb, var(--primary-2) 60%, var(--primary-1));
+  --accent-2-tint: color-mix(in srgb, var(--accent-2) 30%, var(--primary-1));
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --nav-background: #1c1c1f;
-    --nav-border: #333338;
-    --nav-hover: #2a2a2e;
+    --primary-1: #004800;
+    --primary-2: #f0f0f1;
+    --accent-1: #f59a63;
+    --danger: #ffb3c1;
   }
 }
 
@@ -30,8 +41,8 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--primary-2);
+  background: var(--primary-1);
   font-family: Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -48,8 +59,48 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+/* Inline links keep their underline: --accent-1 on the page is only about 2:1 against the body text. */
+main a {
+  color: var(--accent-1);
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-1);
+  outline-offset: 2px;
+}
+
+select,
+option {
+  background: var(--primary-1);
+  color: var(--primary-2);
+}
+
+/* The open list of a native select is drawn by the browser; only base-select
+   (Chromium 135+) lets us tint its hover and selected options. */
+@supports (appearance: base-select) {
+  select,
+  ::picker(select) {
+    appearance: base-select;
+  }
+
+  option:hover,
+  option:checked {
+    background: var(--accent-2-tint);
+  }
+}
+
+@media (forced-colors: active) {
+  /* Background-only states vanish in forced colors, so give hovers an outline (no layout shift). */
+  button:hover,
+  a:hover,
+  option:hover {
+    outline: 1px solid;
+  }
+
+  button:disabled,
+  button[aria-disabled="true"] {
+    border-style: dashed;
   }
 }

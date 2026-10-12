@@ -108,7 +108,7 @@ export default function LoginForm() {
               {state.error}
             </p>
           )}
-          <button type="submit" disabled={!hydrated || state.pending} className={styles.button}>
+          <button type="submit" disabled={!hydrated || state.pending} className={`${styles.button} ${styles.primary}`}>
             Send Code
           </button>
         </form>
@@ -131,7 +131,7 @@ export default function LoginForm() {
               {state.error}
             </p>
           )}
-          <button type="submit" disabled={state.pending} className={styles.button}>
+          <button type="submit" disabled={state.pending} className={`${styles.button} ${styles.primary}`}>
             Verify Code
           </button>
           <div className={styles.actions}>
