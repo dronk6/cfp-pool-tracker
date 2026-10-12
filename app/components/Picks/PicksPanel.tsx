@@ -64,7 +64,7 @@ export default function PicksPanel({ view, teams, editDisabledReason, year, init
         {savedNotice && !editing && "Your picks were saved."}
       </p>
       {editing ? (
-        <PicksEditor view={shownView} teams={teams} onCancel={() => setEditing(false)} onSave={save} />
+        <PicksEditor view={shownView} teams={teams} initialTop12={initialTop12} onCancel={() => setEditing(false)} onSave={save} />
       ) : (
         <>
           <div className={styles.toolbar}>
