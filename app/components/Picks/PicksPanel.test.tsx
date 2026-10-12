@@ -166,6 +166,28 @@ describe("PicksPanel", () => {
       expect(screen.queryByText("Your picks were saved.")).not.toBeInTheDocument();
     });
 
+    it("still shows the initial team after a save and re-entering edit mode", async () => {
+      // Slot 12 starts as Team 13 (initial), is saved as Team 17, then changed again to Team 05.
+      const saved = {
+        currentPlayoff: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 17],
+        currentTiebreakers: [14, 15, 16],
+        championId: 1,
+      };
+      const { user } = setup(vi.fn().mockResolvedValue(respond({ ...saved, year: 2026 })));
+      await openEditor(user);
+      await user.selectOptions(screen.getByRole("combobox", { name: "Slot 12" }), "Team 17");
+      await user.selectOptions(screen.getByRole("combobox", { name: "Champion" }), "Team 01");
+      await user.click(save());
+      await screen.findByText("Your picks were saved.");
+
+      await user.click(editButton());
+      expect(screen.getByRole("combobox", { name: "Slot 12" })).toHaveValue("17");
+      expect(screen.getByText("Originally: Team 13")).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByRole("combobox", { name: "Slot 12" }), "Team 05");
+      expect(screen.getByText("Originally: Team 13")).toBeInTheDocument();
+    });
+
     it.each([
       [401, { error: "unauthenticated" }, /signed out/],
       [403, { error: "outside-edit-window", editOpensAt: null, editClosesAt: null }, /isn't open for this season/],

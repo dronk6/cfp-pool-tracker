@@ -26,10 +26,22 @@ function view(overrides: Partial<PicksView> = {}): PicksView {
   };
 }
 
-function setup(props: { view?: PicksView; onSave?: (draft: PicksDraft) => Promise<SaveOutcome> } = {}) {
+const INITIAL_TOP_12 = Array.from({ length: 12 }, (_, i) => i + 1);
+
+function setup(
+  props: { view?: PicksView; initialTop12?: readonly number[]; onSave?: (draft: PicksDraft) => Promise<SaveOutcome> } = {},
+) {
   const onCancel = vi.fn();
   const user = userEvent.setup();
-  render(<PicksEditor view={props.view ?? view()} teams={teams} onCancel={onCancel} onSave={props.onSave} />);
+  render(
+    <PicksEditor
+      view={props.view ?? view()}
+      teams={teams}
+      initialTop12={props.initialTop12 ?? INITIAL_TOP_12}
+      onCancel={onCancel}
+      onSave={props.onSave}
+    />,
+  );
   return { user, onCancel };
 }
 
@@ -269,6 +281,87 @@ describe("PicksEditor", () => {
       await user.click(screen.getByRole("button", { name: "Cancel" }));
       expect(onCancel).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("PicksEditor original-team hints", () => {
+  const originally = (name: string) => screen.queryByText(`Originally: ${name}`);
+
+  it("shows no hint on a slot that still holds its initial team", () => {
+    setup();
+    expect(screen.queryByText(/^Originally:/)).not.toBeInTheDocument();
+    expect(slot(1)).not.toHaveAccessibleDescription();
+  });
+
+  it("shows the initial team once the slot changes, and describes the select with it", async () => {
+    const { user } = setup();
+
+    await user.selectOptions(slot(1), "Team 20");
+
+    expect(originally("Team 01")).toBeInTheDocument();
+    expect(slot(1)).toHaveAccessibleDescription("Originally: Team 01");
+    expect(screen.getAllByText(/^Originally:/)).toHaveLength(1);
+  });
+
+  it("drops the hint when the initial team is selected again", async () => {
+    const { user } = setup();
+    await user.selectOptions(slot(1), "Team 20");
+
+    await user.selectOptions(slot(1), "Team 01");
+
+    expect(screen.queryByText(/^Originally:/)).not.toBeInTheDocument();
+  });
+
+  it("shows the hint on a blank slot", async () => {
+    const { user } = setup();
+
+    await user.selectOptions(slot(3), "Choose a team");
+
+    expect(originally("Team 03")).toBeInTheDocument();
+  });
+
+  it("compares against the initial top 12, not the picks the editor opened with", () => {
+    // Opened with Team 20 in slot 1 (a later save); the initial pick was Team 01.
+    setup({ view: view({ playoff: [pick(1, 20), ...Array.from({ length: 11 }, (_, i) => pick(i + 2))] }) });
+
+    expect(originally("Team 01")).toBeInTheDocument();
+    expect(slot(1)).toHaveValue("20");
+  });
+
+  it("gives the First Three Out no hint", async () => {
+    const { user } = setup();
+
+    await user.selectOptions(slot(13), "Team 20");
+    await user.selectOptions(slot(15), "Choose a team");
+
+    expect(screen.queryByText(/^Originally:/)).not.toBeInTheDocument();
+  });
+
+  it("shows no hint for a slot the initial top 12 has no entry for", () => {
+    setup({ initialTop12: [1, 2, 3] });
+    expect(screen.queryByText(/^Originally:/)).not.toBeInTheDocument();
+  });
+
+  it("stacks the Originally hint above the duplicate hint and describes the select with both", async () => {
+    const { user } = setup();
+
+    // Slot 1 now holds Team 02, which slot 2 also holds.
+    await user.selectOptions(slot(1), "Team 02");
+
+    const original = screen.getByText("Originally: Team 01");
+    const duplicate = screen.getByText("Also in slot 2");
+    expect(original.compareDocumentPosition(duplicate) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(original.id).not.toBe(duplicate.id);
+    expect(slot(1)).toHaveAttribute("aria-describedby", `${original.id} ${duplicate.id}`);
+    expect(slot(1)).toHaveAccessibleDescription("Originally: Team 01 Also in slot 2");
+  });
+
+  it("names an initial team that the team list no longer has", async () => {
+    const { user } = setup({ initialTop12: [99, ...INITIAL_TOP_12.slice(1)] });
+
+    expect(originally("Unknown team (#99)")).toBeInTheDocument();
+    await user.selectOptions(slot(1), "Team 01");
+    expect(originally("Unknown team (#99)")).toBeInTheDocument();
   });
 });
 

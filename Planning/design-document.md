@@ -666,7 +666,7 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
     - "Save" and "Cancel" buttons at the bottom; Cancel discards changes.
     - Edit state is local until saved.
   - Notes:
-    - Nice-to-haves (autocomplete dropdown, showing the previous team in each slot) are deferred until after pre-launch verification.
+    - Nice-to-haves (autocomplete dropdown) are deferred until after pre-launch verification. Showing the original team in each slot became PR 26.
     - Reuse `TeamLogo` (`app/components/TeamLogo`) and `PicksList` from PR 16 if the edit view shows logos; it only renders ESPN logo URLs (`lib/team-logo.ts`).
     - Each slot is a native `<select>` of all teams rather than a text box (see Decisions, "Edit view (PR 17)"); the autocomplete is a follow-up.
   - Blockers/Open Questions:
@@ -800,7 +800,28 @@ Milestones are listed in build order. Milestones 3 (Data) and 4 (Validation) are
 
 #### Follow-ups (after Milestone 10)
 
-Nice-to-haves from the My Picks section, to be ticketed only if time permits: team autocomplete dropdown, showing the previous team in each slot, "Are you sure?" on cancel, change-summary popup on save, side-by-side before/after view, conference labels. The autocomplete replaces only `TeamSelect` (library-based; the library choice and dependency approval happen in that ticket). Logos already show beside each slot in the edit view (PR 17).
+Nice-to-haves from the My Picks section, to be ticketed only if time permits: team autocomplete dropdown, "Are you sure?" on cancel, change-summary popup on save, side-by-side before/after view, conference labels. The autocomplete replaces only `TeamSelect` (library-based; the library choice and dependency approval happen in that ticket). Logos already show beside each slot in the edit view (PR 17).
+
+- PR 26: Show each top-12 slot's original team in the edit view
+  - User Story: As a user, I would like the edit view to remind me which team I originally had in each top-12 slot, so I can see how my changes compare to my initial picks and keep within the 3-move limit.
+  - Requirements:
+    - A top-12 slot (1-12) whose current choice differs from the team in that slot in the user's **initial** top 12 shows a hint beneath its select: `Originally: <team name>`.
+    - The comparison is always against `initial_playoff`, never the previous save or the picks the editor opened with. A user who re-enters edit mode after saving still sees the original team: slot 1 was Miami, saved as Tulane, now changed to Kentucky, still reads `Originally: Miami`.
+    - The hint shows only while the slot differs from the initial pick. It disappears if the original team is selected again, and a slot left blank shows it too.
+    - Slots 13-15 (First Three Out) get no hint.
+    - It is a separate line from the "Also in slot N" hint; a slot with both shows two stacked lines, "Originally" first, at every screen width.
+    - Both hints are linked to the select with `aria-describedby`.
+    - The hint is informational, not a warning: styled differently from the duplicate hint, with sufficient contrast in light and dark themes.
+    - An id that `teams` no longer lists shows as "Unknown team (#id)".
+    - `PicksEditor` takes the initial top 12 as a required `initialTop12` prop, passed from `PicksPanel`, which already has it (PR 18). No change to `loadMyPicks`, the API or what is sent to the browser.
+    - Tests cover: no hint on an unchanged slot; a hint after a change; the hint disappearing when the original team is re-selected; a blank slot showing it; the original team staying visible after a save and re-entering edit mode; no hint on slots 13-15; both hints described on one slot; an unknown team id.
+  - Notes:
+    - Moved from the nice-to-haves list above; replaces the deferral noted in PR 17.
+    - Top 12 only, by decision: the initial First Three Out stays on the server (tiebreaker edits are free, so a hint there matters less).
+    - Always separate lines, not merged and not switched by screen width: the page already scrolls on a phone (12 rows are about 620px) and a hint adds about 22px only to changed rows.
+    - The hint lives in `PicksEditor` beside the duplicate hint, so the autocomplete ticket still replaces only `TeamSelect`.
+  - Blockers/Open Questions:
+    - Depends on PRs 17 and 18 (both merged).
 
 Hardening, also only if time permits:
 
@@ -847,7 +868,7 @@ Hardening, also only if time permits:
   - **States:** inline messages, never `redirect()` or `notFound()` (a page redirect could loop with the proxy's redirects). Signed out (or the session check fails) shows a "Log in" link as a plain anchor; no row for the year says so and points to Tyler; an unexpected error shows a generic alert and logs only the error name; a team id missing from `teams` shows as "Unknown team (#id)".
   - **Logos are in scope for the list view:** each row shows the team's `image_url` in a fixed 32px box (always on the light theme's background, since logos lose contrast on the dark one) beside the name, with an empty `alt` (the name is adjacent text). The ESPN originals are 500px PNGs of 30-80 KB, so they go through `next/image`, which serves about 1.5-3 KB at the size shown; plain `<img>` would download all 15 originals (around 600 KB). `images.remotePatterns` allows only `https://a.espncdn.com/i/teamlogos/ncaa/500/*.png`, the only host and path in the seed CSV, and the page renders an `image_url` only if it matches that same allowlist. The box is always rendered, so a missing or failed logo leaves a plain placeholder with no layout shift. Covering the browser's broken-image icon is best effort (CSS `::after`, checked by hand in Chromium; Safari may still show it). The first 8 rows load eagerly and the rest lazily; the text never waits for images. `TeamLogo` is reusable for PR 17's edit view. The edit view and the team selectors remain open (Follow-ups).
 - **Edit view (PR 17):**
-  - **Native select per slot:** each of the 15 slots is a `<select>` of every team (alphabetical, a blank "Choose a team" first that maps to `null`), not a text box. It works on every phone and with every screen reader at no dependency cost. It lives alone in `app/components/Picks/TeamSelect.tsx`, so the autocomplete nice-to-have (a follow-up after PR 18, built with a library; the library choice and dependency approval happen in that ticket) replaces only that file. "Previous team" hints are deferred too. A team id the database no longer lists stays selectable as "Unknown team (#id)" in its own slot only.
+  - **Native select per slot:** each of the 15 slots is a `<select>` of every team (alphabetical, a blank "Choose a team" first that maps to `null`), not a text box. It works on every phone and with every screen reader at no dependency cost. It lives alone in `app/components/Picks/TeamSelect.tsx`, so the autocomplete nice-to-have (a follow-up after PR 18, built with a library; the library choice and dependency approval happen in that ticket) replaces only that file. "Previous team" hints were deferred too, and became PR 26 (original team, top 12 only). A team id the database no longer lists stays selectable as "Unknown team (#id)" in its own slot only.
   - **Champion:** a select limited to the distinct teams currently in slots 1-12, in slot order. If a slot change drops the champion from the top 12 it is cleared immediately (in the reducer, not derived), with a polite "Champion cleared: X is no longer in your top 12." note, and is not restored if the team comes back. Moving the champion between slots keeps it. Requiring a champion to save is PR 18's job.
   - **Duplicates don't block:** a slot whose team is also in another slot (within a list, or top 12 against the First Three Out) shows a plain-text "Also in slot N" hint, linked with `aria-describedby`, not an alert. Violations are reported at save time (PR 18).
   - **Local state, Save disabled for now:** edits live in `PicksEditor`'s reducer, mounted only in edit mode, so Cancel (no confirmation) discards them and nothing is written. Focus moves into the editor on Edit and back to the Edit button on Cancel. `PicksEditor` takes an optional `onSave(draft: PicksDraft)`; Save is disabled until PR 18 supplies it. The draft pads or trims to 12 and 3 because the database doesn't constrain the array lengths.
