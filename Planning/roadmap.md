@@ -2,6 +2,7 @@
 
 ## Noteworthy Dates
 
+- Oct. 31: Supabase issue ([see here](https://github.com/orgs/supabase/discussions/45329)) goes into effect. Need to fix before then.
 - Nov. 3: First AP poll comes out (between wks 9-10)
   - Could be a chance to build out the leaderboard
 
