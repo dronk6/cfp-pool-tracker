@@ -1,12 +1,13 @@
-# 9/10 Meeting Notes
+# 10/28 Meeting Notes
 
 Drew and Tyler met to discuss adding a "Leaderboard" page to the app. See notes and action items below.
 
 ## Page Requirements
 
 - Users should be able to see the current CFP rankings
-- Users should be able to see how they're performing against others in the pool, including how many total points they have
-- Users should be able to see other users' submissions, including their champion
+- Users should be able to see how they're performing against others in the pool, including how many total *projected* points they have
+- Users should be able to see other users' submissions, including their champion (show next to each submission's name)
+- Users should be able to see what they get points for
 
 ### Mock
 
