@@ -1,4 +1,6 @@
+# 9/10 Meeting Notes
 
+Drew and Tyler met to discuss goals for the project. See notes and action items below.
 
 ## Features
 
